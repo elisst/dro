@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "DRO"
+version = "0.1.0"
+description = "Code for DRO project"
+authors = [
+    {name = "Elis Stefansson"},
+    {name = "David Vävinggren"},
+    {name = "Antônio H. Ribeiro"}
+]
+requires-python = ">=3.13"
+readme = "README.md"
+dependencies = [
+    "h5py",
+    "matplotlib",
+    "numpy",
+    "torch",
+    "torchvision",
+    "scipy",
+ ]
+
+[tool.poetry.dev-dependencies]
+# Add any development dependencies here if needed
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.urls]
+Homepage = "https://github.com/elisst/dro"

@@ -14,16 +14,17 @@ authors = [
 requires-python = ">=3.13"
 readme = "README.md"
 dependencies = [
-    "h5py",
-    "matplotlib",
+    "cvxpy>=1.9.2",
     "numpy",
-    "torch",
-    "torchvision",
     "scipy",
- ]
+]
 
-[tool.poetry.dev-dependencies]
-# Add any development dependencies here if needed
+[project.optional-dependencies]
+test = ["pytest"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

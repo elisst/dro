@@ -1,80 +1,91 @@
-"""evaluate V_delta(beta) using the paper's scalar reduction or gamma formulation
+"""
+evaluate V_delta(beta) using the paper's scalar reduction or gamma formulation
 
-RobustRisk.normalized(X, y, delta, p) takes the Wasserstein radius delta
-RobustRisk(X, y, delta**p, p) bounds the average cost by mean(t**p) <= delta**p
-at p=infinity, both take delta directly and each perturbation length satisfies t_i <= delta
+RobustRisk(X, y, delta, p) takes the Wasserstein radius delta
 
-RobustRisk maps beta to |r| and B=||beta||_*, then calls _ScalarRisk.solve
-_ScalarRisk.solve selects the explicit cases or solves for lambda, maximizing over t inside
+for finite p, perturbation lengths satisfy mean(t**p) <= delta**p,
+at p=infinity, each perturbation length satisfies t_i <= delta
+
+the scalar evaluator solves for lambda, maximizing over perturbation lengths inside
 primal and dual return mean risk V_delta by default, or n V_delta with per_sample=False
+
 see docs/robust_risk.md for the equations, call structure, and examples
 """
 
 import cvxpy as cp
 import numpy as np
-from scipy.optimize import brentq
+from scipy.optimize import elementwise, minimize_scalar
 
 
 class RobustRisk:
-    """evaluate risk for nonempty data, delta >= 0, 2 <= p <= infinity, and norm >= 1"""
+    """
+    evaluate risk
 
-    def __init__(self, X, y, delta, p, norm=np.inf, *, normalized=False):
-        """accept the average-cost bound as delta, or the radius when normalized=True
+    assume nonempty data, delta >= 0, 2 <= p <= infinity, and norm >= 1
+    """
 
-        for finite p, pass delta**p to bound mean(t**p), or use normalized(X, y, delta, p)
-        at p=infinity, delta always denotes the radius
-        self.delta stores the radius in either case
-        """
-        self.X = X
-        self.y = y
+    def __init__(self, X, y, delta, p, norm=np.inf):
+        """construct V_delta with Wasserstein radius delta"""
+        self.X = np.asarray(X, dtype=float)
+        self.y = np.asarray(y, dtype=float)
         self.n = len(y)
-        self.delta = delta if normalized or np.isinf(p) else delta ** (1 / p)
+        self.delta = delta
         self.p = p
         self.q = _conjugate(p)
         self.norm_dual = _conjugate(norm)
 
-    @classmethod
-    def normalized(cls, X, y, delta, p, norm=np.inf):
-        """accept the Wasserstein radius delta and construct V_delta"""
-        return cls(X, y, delta, p, norm, normalized=True)
-
     def primal(self, beta, per_sample=True):
-        """evaluate mean risk V_delta through the scalar reduction in eqs (14)/(35)
+        """
+        evaluate mean risk V_delta through the scalar reduction in eq. (16)
 
         pass per_sample=False to return summed loss n V_delta
         """
+
+        # form residual and B
         residual_abs = np.abs(self.X @ beta - self.y)
         B = np.linalg.norm(beta, self.norm_dual)
+
+        # compute n V_delta with the _ScalarRisk class
         n_value = _ScalarRisk(self.delta, self.p).solve(residual_abs, B)
+
         return n_value / self.n if per_sample else n_value
 
     def dual(self, beta, per_sample=True):
-        """evaluate mean risk V_delta through the concave gamma maximization in eq (20)
+        """
+        evaluate mean risk V_delta through the concave gamma maximization in eq. (22)
 
         pass per_sample=False to return summed loss n V_delta
         """
+
+        # form residual, B, gamma as cp var
         residual_abs = np.abs(self.X @ beta - self.y)
         B = np.linalg.norm(beta, self.norm_dual)
         gamma = cp.Variable(self.n, nonneg=True)
+
+        # form objective
         objective = (
             self.n ** (1 / self.p)
             * self.delta
             * B
-            * cp.power(cp.sum(gamma), 1 / self.q)
-            + residual_abs @ cp.power(gamma, 1 / self.q)
-            - cp.sum(cp.power(gamma, 2 / self.q)) / 4
+            * cp.power(cp.sum(gamma), 1 / self.q, max_denom=65536)
+            + residual_abs @ cp.power(gamma, 1 / self.q, max_denom=65536)
+            - cp.sum(cp.power(gamma, 2 / self.q, max_denom=65536)) / 4
         )
+
+        # solve
         problem = cp.Problem(cp.Maximize(objective))
         problem.solve()
+
         return problem.value / self.n if per_sample else problem.value
 
 
 class _ScalarRisk:
-    """solve inf_lambda [n delta**p lambda + sum_i sup_t f_i(t)] in eqs (14)/(35)
+    """
+    scalar reduction from eq. (16) inf_lambda n*delta**p*lambda + sum_i sup_t f_i(t)
 
-    f_i(t) = (|r_i| + B*t)**2 - lambda*t**p for finite p
-    solve handles the explicit cases before calling _solve_finite_p
-    _solve_finite_p calls _solve_lambda, which calls _maximize_t for each candidate lambda
+    here, f_i(t) = (|r_i| + B*t)**2 - lambda*t**p
+
+    the outer optimum spends the transport budget, i.e., mean(t**p) = delta**p
     """
 
     def __init__(self, delta, p):
@@ -82,116 +93,89 @@ class _ScalarRisk:
         self.p = p
 
     def solve(self, residual_abs, B):
-        """return the summed risk for residual magnitudes |r| and B=||beta||_*"""
-        if self.delta == 0:
-            # no perturbations are allowed
+        """
+        return summed risk
+
+        p=2 and p=infinity have explicit formulas
+        """
+
+        # divide into cases (see docs)
+        if self.delta == 0 or B == 0:  # OLS
             return float(np.sum(residual_abs**2))
-        if np.isinf(self.p):
-            # each observation can use t_i = delta in adversarial training
+        if np.isinf(self.p):  # adversarial training
             return float(np.sum((residual_abs + B * self.delta) ** 2))
-        if B == 0:
-            # moving covariates cannot change a zero-coefficient prediction
-            return float(np.sum(residual_abs**2))
-        if self.p == 2:
-            return self._sqrt_lasso(residual_abs, B)
+        if self.p == 2:  # square-root lasso
+            return (
+                np.linalg.norm(residual_abs)
+                + np.sqrt(len(residual_abs)) * self.delta * B
+            ) ** 2
+        # only remaining 2 < p < infty case where delta, B > 0
         return self._solve_finite_p(residual_abs, B)
 
-    def _sqrt_lasso(self, residual_abs, B):
-        """evaluate n*V_delta(beta) = (||r||_2 + sqrt(n)*delta*B)**2, proposition 2"""
-        residual_norm = float(np.linalg.norm(residual_abs))
-        return (residual_norm + np.sqrt(len(residual_abs)) * self.delta * B) ** 2
-
     def _solve_finite_p(self, residual_abs, B):
-        """solve for lambda and t at 2 < p < infinity, delta > 0, B > 0
+        """return summed risk for 2 < p < infinity"""
 
-        use t = delta*u, a = |r|/scale, b = delta*B/scale so mean(u**p) = 1
-        lambda below is the scaled penalty lambda_original * delta**p / scale**2
-        scaling avoids forming a potentially overflowing original lambda for a finite risk
-        """
+        # rescale to keep problem numerically well-behaved (see docs)
         scale = max(float(np.max(residual_abs)), self.delta * B)
-        a, b = residual_abs / scale, self.delta * B / scale
-        lam, u = self._solve_lambda(a, b)
-        n_value = self._checked_value(a, b, lam, u)
-        return n_value * scale**2
+        a = residual_abs / scale
+        b = self.delta * B / scale
 
-    def _solve_lambda(self, a, b):
-        """find lambda with mean(u(lambda)**p) = 1, the scaled outer first-order condition"""
-        # f_i'(1) = 0 gives endpoints where all maximizing u_i are >= 1 or <= 1
-        lam_lo = 2 * b * (float(np.min(a)) + b) / self.p
-        lam_hi = 2 * b * (float(np.max(a)) + b) / self.p
-        if not np.isfinite(lam_hi) or lam_lo <= 0:
-            raise FloatingPointError(
-                "Scalar risk is outside the supported floating-point scale"
-            )
-        if lam_lo == lam_hi:
-            return lam_hi, np.ones_like(a)
+        # analytical bounds for search (see docs)
+        lambda_lo = 2 * b * (float(np.min(a)) + b) / self.p
+        lambda_hi = 2 * b * (float(np.max(a)) + b) / self.p
+        if lambda_lo == lambda_hi:
+            return float(np.sum((a + b) ** 2) * scale**2)
 
-        def cost_excess(relative_lam):
-            u = self._maximize_t(a, b, relative_lam * lam_hi)
-            return np.mean(u**self.p) ** (1 / self.p) - 1
+        def objective(relative_lambda):
+            lam = relative_lambda * lambda_hi
+            return len(a) * lam + np.sum(self._maximize_t(a, b, lam))
 
-        # search in lambda/lam_hi so tolerances do not depend on the size of lambda
-        relative_lam, result = brentq(
-            cost_excess,
-            lam_lo / lam_hi,
-            1.0,
-            xtol=1e-14,
-            rtol=1e-13,
-            maxiter=1000,
-            full_output=True,
+        # use minimize_scalar() from scipy.optimize to find opt lambda
+        result = minimize_scalar(
+            objective,
+            bounds=(lambda_lo / lambda_hi, 1),
+            method="bounded",
+            options={"xatol": 1e-10},
         )
-        if not result.converged:
-            raise RuntimeError(f"Scalar risk root solve failed: {result.flag}")
-        lam = relative_lam * lam_hi
-        return lam, self._maximize_t(a, b, lam)
 
-    def _maximize_t(self, residual_abs, B, lam):
-        """argmax_{t>=0} f(t) per datapoint, using unimodality after eq (35)
+        # check for invalid result
+        if not result.success:
+            raise RuntimeError(f"scalar risk minimization failed: {result.message}")
 
-        f(t) = (|r| + B*t)**2 - lambda*t**p, so bisect f' for the sign change
-        the scaled solver passes a, b, and scaled lambda to this same problem and obtains u
+        # scale back up and return
+        return float(result.fun * scale**2)
+
+    def _maximize_t(self, a, b, lam):
+        """
+        maximize each scaled f_i over u_i = t_i / delta
+
+        return each inner maximum by minimizing the negative objective
         """
 
-        def f_prime(t):
-            return 2 * B * (residual_abs + t * B) - lam * self.p * t ** (self.p - 1)
+        def negative_objective(u, a):
+            # negative inner objective in scaled coordinates
+            # we min -obj rather than max obj
+            return lam * u**self.p - (a + b * u) ** 2
 
-        lo = np.zeros_like(residual_abs)
-        hi = np.ones_like(residual_abs)
-        for _ in range(100):  # grow hi until f' <= 0, at or past the maximizer
-            derivative = f_prime(hi)
-            rising = derivative > 0
-            if not rising.any():
-                break
-            hi = np.where(rising, 2 * hi, hi)  # double only endpoints where f' is still positive
-        derivative = f_prime(hi)
-        if np.any(derivative > 0) or not np.isfinite(derivative).all():
-            raise FloatingPointError(
-                "Could not bracket the inner perturbation maximizer"
-            )
+        # create bracket which we knows contains min but not where
+        bracket = elementwise.bracket_minimum(
+            negative_objective, 1.0, xmin=0.0, args=(a,)
+        )
 
-        for _ in range(100):
-            mid = (lo + hi) / 2
-            rising = f_prime(mid) > 0
-            lo = np.where(rising, mid, lo)
-            hi = np.where(rising, hi, mid)
-        return hi
+        # check for invalid bracket
+        if not np.all(bracket.success):
+            raise RuntimeError("could not bracket the perturbation maximum")
 
-    def _checked_value(self, a, b, lam, u):
-        """evaluate the scaled scalar objective and compare it with a feasible perturbation loss
+        # now find exactly where the min is within the provided bracket
+        result = elementwise.find_minimum(
+            negative_objective, bracket.bracket, args=(a,)
+        )
 
-        shrink u only if mean(u**p) > 1, giving a feasible lower bound
-        the scalar expression is an upper bound with exact inner maximizers
-        their numerical agreement checks the solve, without giving a rigorous error certificate
-        """
-        n = len(a)
-        upper = n * lam + np.sum((a + b * u) ** 2 - lam * u**self.p)
-        feasible_u = u / max(1.0, float(np.mean(u**self.p)) ** (1 / self.p))
-        lower = float(np.sum((a + b * feasible_u) ** 2))
-        if not np.isfinite(upper) or abs(upper - lower) > 1e-8 * max(upper, lower):
-            raise RuntimeError(
-                f"Scalar risk bounds disagree: lower={lower}, upper={upper}"
-            )
-        return float(upper)
+        # check convergence
+        if not np.all(result.success):
+            raise RuntimeError("perturbation maximization did not converge")
+
+        return -result.f_x
 
 
 def _conjugate(exponent):

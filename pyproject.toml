@@ -18,11 +18,10 @@ dependencies = [
     "dsp-cvxpy==0.4.2",
     "numpy",
     "scipy>=1.15",
+    "h5py",
+    "matplotlib",
+    "pytest",
 ]
-
-[project.optional-dependencies]
-test = ["pytest"]
-experiments = ["h5py", "matplotlib"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

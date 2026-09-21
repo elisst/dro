@@ -9,13 +9,13 @@ The docs explain the mathematical formulations, numerical calculations, and inpu
 
 ## Installation
 
-Use Python 3.13 or later. From the repository root:
+Use Python 3.13 or later. Install the package from the repository root.
 
 ```sh
 python -m pip install -e .
 ```
 
-The runtime dependencies are NumPy, SciPy, `CVXPY` 1.6.7, and `dsp-cvxpy` 0.4.2. The default solver is `CLARABEL`; `SCS` is also supported. Both are included in a standard `CVXPY` installation.
+The runtime dependencies are NumPy, SciPy, `CVXPY` 1.6.7, `dsp-cvxpy` 0.4.2, h5py, and Matplotlib. The installation also includes pytest for running tests. The default solver is `CLARABEL`. `SCS` is also supported. Both are included in a standard `CVXPY` installation.
 
 ## Fit and evaluate
 
@@ -54,3 +54,18 @@ fit = minimize_cvx(X, y, radius=delta, p=p)
 `X` has shape `(n, d)` and `y` has shape `(n,)`. No intercept is added automatically. `delta` is the Wasserstein radius. The default ground norm is $\ell_\infty$, whose dual coefficient norm is $\ell_1$. Both the scalar evaluator and the `CVXPY` solver accept real exponents $2\leq p<\infty$ and `p=np.inf`.
 
 Both the evaluator and solver return the mean robust squared loss. Use `per_sample=False` with the evaluator only when you need summed loss. The fit includes the solver status and an independent risk evaluation. Missing coefficients or a status other than `optimal` or `optimal_inaccurate` raise an exception.
+
+## Fast-rate experiment
+
+Run or resume the default experiment, then generate its plots from the saved fits. Run these commands from the repository root with your Python environment active.
+
+```sh
+PYTHONPATH=src python -m DRO.experiments.fast.rate
+PYTHONPATH=src python -m DRO.experiments.fast.plot
+```
+
+For custom runs you can e.g. do:
+```sh
+PYTHONPATH=src python -m DRO.experiments.fast.rate --n 24 48 --p 2 3 6 inf --k 1 --fit-min-n 24 --directory /tmp/fast-pilot
+```
+See [the experiment docs](docs/fast.md) for dependencies, settings, more about custom runs, and saved-data details.

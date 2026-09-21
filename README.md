@@ -3,7 +3,7 @@
 Evaluate and minimize the Wasserstein-$p$ robust squared loss for linear regression.
 
 - [Evaluate the risk at fixed coefficients](docs/robust_risk.md) with `RobustRisk`.
-- [Fit coefficients with CVXPY](docs/cvx_solver.md) with `CvxOptimizer(risk)` or the standalone `minimize_cvx` function.
+- [Fit coefficients with `CVXPY`](docs/cvx_solver.md) with `CvxOptimizer(risk)` or the standalone `minimize_cvx` function.
 
 The docs explain the mathematical formulations, numerical calculations, and input conventions.
 
@@ -15,7 +15,7 @@ Use Python 3.13 or later. Install the package from the repository root.
 python -m pip install -e .
 ```
 
-The runtime dependencies are NumPy, SciPy, `CVXPY` 1.6.7, `dsp-cvxpy` 0.4.2, h5py, and Matplotlib. The installation also includes pytest for running tests. The default solver is `CLARABEL`. `SCS` is also supported. Both are included in a standard `CVXPY` installation.
+The runtime dependencies are `NumPy`, `SciPy`, `CVXPY` 1.6.7, `dsp-cvxpy` 0.4.2, `h5py`, and `Matplotlib`. The installation also includes `pytest` for running tests. The default solver is `CLARABEL`. `SCS` is also supported. Both are included in a standard `CVXPY` installation.
 
 ## Fit and evaluate
 

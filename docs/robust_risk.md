@@ -213,7 +213,7 @@ result = minimize_scalar(
 )
 ```
 
-SciPy's [`minimize_scalar`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize_scalar.html), with `method="bounded"`, numerically minimizes a function of one variable within the supplied bounds. Here that function is $H(\rho\widetilde\lambda_{\rm hi})$. Since $H$ is convex, any local minimum is also global. Each evaluation calls `_maximize_t` to compute the inner maxima described next.
+`SciPy`'s [`minimize_scalar`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize_scalar.html), with `method="bounded"`, numerically minimizes a function of one variable within the supplied bounds. Here that function is $H(\rho\widetilde\lambda_{\rm hi})$. Since $H$ is convex, any local minimum is also global. Each evaluation calls `_maximize_t` to compute the inner maxima described next.
 
 ### Compute the inner maxima
 
@@ -232,7 +232,7 @@ def negative_objective(u, a):
 
 For $p>2$, $b>0$, and $\widetilde\lambda>0$, this function decreases to a unique positive minimum and then increases. We find it in two steps.
 
-First, SciPy's [`elementwise.bracket_minimum`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.elementwise.bracket_minimum.html) starts from $u=1$ and finds a bracket containing the minimum, without yet locating the minimizer precisely. `xmin=0.0` keeps lengths nonnegative, and the array `a` gives a separate problem for each observation:
+First, `SciPy`'s [`elementwise.bracket_minimum`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.elementwise.bracket_minimum.html) starts from $u=1$ and finds a bracket containing the minimum, without yet locating the minimizer precisely. `xmin=0.0` keeps lengths nonnegative, and the array `a` gives a separate problem for each observation:
 
 ```python
 bracket = elementwise.bracket_minimum(

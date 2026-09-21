@@ -1,6 +1,6 @@
 # Minimize the robust risk
 
-[`CvxOptimizer`](../src/DRO/cvx_solver.py) solves $\min_\beta V_\delta(\beta)$. It uses the explicit endpoint formulas with `CVXPY` and the gamma saddle formulation with [DSP](https://github.com/cvxgrp/dsp) for $2<p<\infty$. The [robust risk doc](robust_risk.md) derives these formulas and explains the scalar method used to evaluate the fitted risk independently.
+[`CvxOptimizer`](../src/DRO/cvx_solver.py) solves $\min_\beta V_\delta(\beta)$. It uses the explicit endpoint formulas with `CVXPY` and the gamma saddle formulation with [`DSP`](https://github.com/cvxgrp/dsp) for $2<p<\infty$. The [robust risk doc](robust_risk.md) derives these formulas and explains the scalar method used to evaluate the fitted risk independently.
 
 ## Fit and inspect the result
 
@@ -65,7 +65,7 @@ if delta == 0:  # OLS
     formulation = "least-squares"
 ```
 
-**Quadratic exponent.** The triangle-inequality argument in [the explicit cases](robust_risk.md#explicit-cases) gives $V=(\|r\|_2/\sqrt n+\delta B)^2$. This nonnegative convex expression can be squared within CVXPY. With ground norm $\ell_\infty$, this is the squared square-root-Lasso objective:
+**Quadratic exponent.** The triangle-inequality argument in [the explicit cases](robust_risk.md#explicit-cases) gives $V=(\|r\|_2/\sqrt n+\delta B)^2$. This nonnegative convex expression can be squared within `CVXPY`. With ground norm $\ell_\infty$, this is the squared square-root-Lasso objective:
 
 ```python
 elif p == 2:  # square-root lasso
@@ -92,7 +92,7 @@ Fitting coefficients therefore solves
 $$
 \min_\beta\max_{\gamma\geq0}K(\beta,\gamma).
 $$
-For fixed $\gamma$, the terms involving $\beta$ are nonnegative multiples of a norm and absolute residuals, hence convex. For fixed $\beta$, the power exponents make $K$ concave in $\gamma$. We use [DSP](https://github.com/cvxgrp/dsp) to solve this saddle problem.
+For fixed $\gamma$, the terms involving $\beta$ are nonnegative multiples of a norm and absolute residuals, hence convex. For fixed $\beta$, the power exponents make $K$ concave in $\gamma$. We use [`DSP`](https://github.com/cvxgrp/dsp) to solve this saddle problem.
 
 ```python
 else:  # 2 < p < infty case -- solve saddle formulation using DSP
@@ -112,7 +112,7 @@ else:  # 2 < p < infty case -- solve saddle formulation using DSP
 
 ## Restore units and interpret diagnostics
 
-After solving, the coefficients are multiplied by $s$, and the risk is evaluated with the original `RobustRisk` object. If $J$ is the solver objective, its mean-risk value in original units is $s^2J$ for the closed form special cases and $s^2J/n$ for DSP:
+After solving, the coefficients are multiplied by $s$, and the risk is evaluated with the original `RobustRisk` object. If $J$ is the solver objective, its mean-risk value in original units is $s^2J$ for the closed form special cases and $s^2J/n$ for `DSP`:
 
 ```python
 beta_hat = beta.value * scale
@@ -136,4 +136,4 @@ second = CvxOptimizer(risk).minimize(solver="SCS", eps_abs=1e-8, eps_rel=1e-8)
 print(fit.value, second.value)
 ```
 
-For the DSP branch, `eps` (default `1e-3`) controls the absolute part of DSP's agreement check between its two convex-problem values. The code multiplies it by $n$ to convert from scaled mean-loss units to scaled summed-loss units. It is separate from the underlying solver's convergence tolerances.
+For the `DSP` branch, `eps` (default `1e-3`) controls the absolute part of `DSP`'s agreement check between its two convex-problem values. The code multiplies it by $n$ to convert from scaled mean-loss units to scaled summed-loss units. It is separate from the underlying solver's convergence tolerances.

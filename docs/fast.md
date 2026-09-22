@@ -41,7 +41,7 @@ $$
 The fast-rate bound then is
 
 $$
-\frac{\|X(\hat\beta-\beta^*)\|_2^2}{n}
+\frac{\|X(\widehat{\beta}-\beta^*)\|_2^2}{n}
 \leq \delta^2\max\{C_3,C_4\}
 $$
 

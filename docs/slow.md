@@ -51,7 +51,7 @@ Place these columns side by side to obtain $X=[X_1\;X_2]\in\mathbb R^{n\times2}$
 
 `plots/slow` contains `paper.pdf`, `with_config.pdf`, and `results.json`. The JSON records the configuration, fitted slopes, and individual fits.
 
-Points show mean prediction error $\|X(\hat\beta-\beta^*)\|_2^2/n$, with one standard error of the mean as error bars. Smaller sizes show finite-sample curvature.
+Points show mean prediction error $\|X(\widehat{\beta}-\beta^*)\|_2^2/n$, with one standard error of the mean as error bars. Smaller sizes show finite-sample curvature.
 
 ## Run the experiment
 

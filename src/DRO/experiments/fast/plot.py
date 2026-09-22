@@ -37,11 +37,11 @@ plt.rcParams.update(
         "pgf.texsystem": "pdflatex",
         "pgf.rcfonts": False,
         "pgf.preamble": r"\usepackage{amsmath}",
-        "font.size": 11,
-        "axes.labelsize": 12,
-        "xtick.labelsize": 10,
-        "ytick.labelsize": 10,
-        "legend.fontsize": 10,
+        "font.size": 12,
+        "axes.labelsize": 13,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11,
+        "legend.fontsize": 11,
         "axes.linewidth": 0.7,
         "axes.labelpad": 2,
         "lines.linewidth": 1.3,
@@ -137,7 +137,7 @@ def save_figure(figure, axis, output, name, config, title):
     # extra height is only for the title; the paper copy stays compact
     figure.set_size_inches(FIGSIZE[0], FIGSIZE[1] + 0.95)
     axis.set_title(
-        title + "\n" + config_title(config), fontsize=10, pad=5, linespacing=1.3
+        title + "\n" + config_title(config), fontsize=11, pad=5, linespacing=1.3
     )
     figure.savefig(directory / "with_config.pdf", bbox_inches="tight", pad_inches=0.015)
     plt.close(figure)
@@ -205,7 +205,7 @@ def plot_prediction_rates(config, results, output):
     reference = np.mean(final_errors) * (n / n[-1]) ** -1
     axis.plot(n, reference, "--", color="black", linewidth=1.2)
     axis.text(n[0] * 1.10, reference[0] * 0.5, r"$n^{-1}$", ha="left", va="top")
-    axis.set_ylabel(r"$\|X(\hat{\boldsymbol{\beta}}-\boldsymbol{\beta}^*)\|_2^2/n$")
+    axis.set_ylabel(r"$\|X(\widehat{\boldsymbol{\beta}}-\boldsymbol{\beta}^*)\|_2^2/n$")
     style_axis(axis, log_y=True)
     exponent_legend(axis)
     title = rf"Prediction error: mean $\pm$ SEM; fit $n\geq {config.fit_min_n}$"
@@ -230,7 +230,7 @@ def plot_diagnostic(config, results, output, filename, key, label, log_y, title)
             xytext=(4, 6),
             va="bottom",
             textcoords="offset points",
-            fontsize=10,
+            fontsize=11,
         )
     axis.set_ylabel(label)
     style_axis(axis, log_y)
@@ -271,9 +271,9 @@ def plot_results(config, results, output):
         (
             "beta_hat_l1",
             "beta_hat_l1",
-            r"$\|\hat{\boldsymbol{\beta}}\|_1$",
+            r"$\|\widehat{\boldsymbol{\beta}}\|_1$",
             False,
-            r"Fitted coefficient norm $\|\hat{\boldsymbol{\beta}}\|_1$",
+            r"Fitted coefficient norm $\|\widehat{\boldsymbol{\beta}}\|_1$",
         ),
         (
             "radius_ratio",

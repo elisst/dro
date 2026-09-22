@@ -146,7 +146,7 @@ def plot_rates(config, rows, output):
         ha="center",
         va="top",
     )
-    axis.set_ylabel(r"$\|X(\hat{\boldsymbol{\beta}}-\boldsymbol{\beta}^*)\|_2^2/n$")
+    axis.set_ylabel(r"$\|X(\widehat{\boldsymbol{\beta}}-\boldsymbol{\beta}^*)\|_2^2/n$")
     style_axis(axis, log_y=True)
     axis.set_ylim(top=axis.get_ylim()[1] * 1.2)
     exponent_legend(axis).set_loc("upper right")
@@ -162,7 +162,7 @@ def plot_rates(config, rows, output):
         + rf"$1-\rho_n={config.c:g}/\sqrt{{n}},\ K={config.K:g},\ \gamma={config.gamma:g}$"
         + "\n"
         + r"$M=\sqrt{2},\ \mathrm{ground}=\ell_\infty$",
-        fontsize=10,
+        fontsize=11,
         pad=5,
         linespacing=1.3,
     )

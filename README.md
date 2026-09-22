@@ -40,7 +40,8 @@ print(risk.primal(beta))
 fit = CvxOptimizer(risk).minimize()
 print(fit.beta)
 print(fit.value)
-print(fit.diagnostics["model_value"])  # CVXPY value checked against fit.value
+# CVXPY value checked against fit.value
+print(fit.diagnostics["model_value"])
 ```
 
 `CvxOptimizer` takes the data, radius, and norms from `risk`. To fit directly from data without constructing a risk object yourself, use the standalone function.
@@ -57,7 +58,7 @@ Both the evaluator and solver return the mean robust squared loss. Use `per_samp
 
 ## Fast-rate experiment
 
-Run or resume the default experiment, then generate its plots from the saved fits. Run these commands from the repository root with your Python environment active.
+Run or resume the default experiment with ten repetitions per $(n,p)$, then generate its plots from the saved fits. Run these commands from the repository root with your Python environment active.
 
 ```sh
 PYTHONPATH=src python -m DRO.experiments.fast.rate
@@ -66,6 +67,41 @@ PYTHONPATH=src python -m DRO.experiments.fast.plot
 
 For custom runs you can e.g. do:
 ```sh
-PYTHONPATH=src python -m DRO.experiments.fast.rate --n 24 48 --p 2 3 6 inf --k 1 --fit-min-n 24 --directory /tmp/fast-pilot
+PYTHONPATH=src python -m DRO.experiments.fast.rate \
+    --n 24 48 \
+    --p 2 3 6 inf \
+    --k 1 \
+    --fit-min-n 24 \
+    --directory /tmp/fast-pilot
 ```
 See [the experiment docs](docs/fast.md) for dependencies, settings, more about custom runs, and saved-data details.
+
+## Slow-rate experiment (d=2)
+
+Run the default experiment and generate its rate plots in one command. Run from the repository root with your Python environment active.
+
+```sh
+PYTHONPATH=src python -m DRO.experiments.slow.rate
+```
+
+For a shorter run with separate outputs:
+
+```sh
+PYTHONPATH=src python -m DRO.experiments.slow.rate \
+    --n 4096 8192 \
+    --p 2 3 6 inf \
+    --k 1 \
+    --output-directory plots/slow-pilot/rate
+```
+
+To include smaller sizes while fitting the slope on the original range:
+
+```sh
+PYTHONPATH=src python -m DRO.experiments.slow.rate \
+    --c 3 \
+    --n 256 512 1024 2048 4096 6144 8192 10240 \
+    --fit-n-min 4096 \
+    --output-directory plots/slow/c3-extended/rate
+```
+
+See [the experiment docs](docs/slow.md) for the data construction, slow-rate mechanism, settings, and saved results.

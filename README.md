@@ -105,3 +105,14 @@ PYTHONPATH=src python -m DRO.experiments.slow.rate \
 ```
 
 See [the experiment docs](docs/slow.md) for the data construction, slow-rate mechanism, settings, and saved results.
+
+
+## Regime experiment
+
+Run the experiment and save plots to `plots/regimes/` and data to `data/regimes/`:
+
+```sh
+PYTHONPATH=src python -m DRO.experiments.regimes.regime
+```
+
+Add `--plot-only` to redraw saved results.

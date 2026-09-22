@@ -21,7 +21,7 @@ $$
 | `--gamma` | failure-probability parameter in the radius rule | 0.01 |
 | `--seed` | base random seed | 20260921 |
 | `--fit-n-min` | smallest sample size included in slope fits | all plotted sizes |
-| `--output-directory` | folder for both PDFs and results | `plots/slow/rate` |
+| `--output-directory` | folder for both PDFs and results | `plots/slow` |
 
 Use `--help` for all flags. Assume at least two distinct sample sizes $n$ in increasing order, each divisible by four and satisfying $0<c_0/\sqrt n<1$. Assume $p\geq2$, $0<\gamma<1$, and positive repetitions, noise variance, and radius multiplier. If `--fit-n-min` is supplied, at least two sample sizes must remain in the fit range. The flag `--c` and saved setting `c` represent the paper's $c_0$.
 
@@ -49,7 +49,7 @@ Place these columns side by side to obtain $X=[X_1\;X_2]\in\mathbb R^{n\times2}$
 
 ## Saved results and plots
 
-`plots/slow/rate` contains `paper.pdf`, `with_config.pdf`, and `results.json`. The JSON records the configuration, fitted slopes, and individual fits.
+`plots/slow` contains `paper.pdf`, `with_config.pdf`, and `results.json`. The JSON records the configuration, fitted slopes, and individual fits.
 
 Points show mean prediction error $\|X(\hat\beta-\beta^*)\|_2^2/n$, with one standard error of the mean as error bars. Smaller sizes show finite-sample curvature.
 

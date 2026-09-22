@@ -11,7 +11,7 @@ from pathlib import Path
 
 import matplotlib
 
-matplotlib.use("Agg")
+matplotlib.use("pgf")
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.ticker import (
@@ -31,8 +31,12 @@ COLORS = {2: "#CC79A7", 3: "#D55E00", 6: "#F0E442", np.inf: "#009E73"}
 MARKERS = {2: "o", 3: "s", 6: "^", np.inf: "D"}
 plt.rcParams.update(
     {
-        "font.family": "STIXGeneral",
-        "mathtext.fontset": "cm",
+        "font.family": "serif",
+        "font.serif": ["Computer Modern Roman"],
+        "text.usetex": True,
+        "pgf.texsystem": "pdflatex",
+        "pgf.rcfonts": False,
+        "pgf.preamble": r"\usepackage{amsmath}",
         "font.size": 11,
         "axes.labelsize": 12,
         "xtick.labelsize": 10,
@@ -201,7 +205,7 @@ def plot_prediction_rates(config, results, output):
     reference = np.mean(final_errors) * (n / n[-1]) ** -1
     axis.plot(n, reference, "--", color="black", linewidth=1.2)
     axis.text(n[0] * 1.10, reference[0] * 0.5, r"$n^{-1}$", ha="left", va="top")
-    axis.set_ylabel(r"$\|X(\hat\beta-\beta^*)\|_2^2/n$")
+    axis.set_ylabel(r"$\|X(\hat{\boldsymbol{\beta}}-\boldsymbol{\beta}^*)\|_2^2/n$")
     style_axis(axis, log_y=True)
     exponent_legend(axis)
     title = rf"Prediction error: mean $\pm$ SEM; fit $n\geq {config.fit_min_n}$"
@@ -250,7 +254,7 @@ def plot_diagnostic(config, results, output, filename, key, label, log_y, title)
             axis.add_artist(styles)
         exponent_legend(axis, key)
     if key != "radius":
-        interval = "range" if full_range else "10-90%"
+        interval = "range" if full_range else r"10--90\%"
         title += f"\nmedian; shading: {interval}"
     save_figure(figure, axis, output, filename, config, title)
 
@@ -267,9 +271,9 @@ def plot_results(config, results, output):
         (
             "beta_hat_l1",
             "beta_hat_l1",
-            r"$\|\hat\beta\|_1$",
+            r"$\|\hat{\boldsymbol{\beta}}\|_1$",
             False,
-            r"Fitted coefficient norm $\|\hat\beta\|_1$",
+            r"Fitted coefficient norm $\|\hat{\boldsymbol{\beta}}\|_1$",
         ),
         (
             "radius_ratio",
@@ -278,15 +282,15 @@ def plot_results(config, results, output):
             False,
             r"Radius assumption: $\delta/\bar\delta>1$",
         ),
-        ("C1", "C1", r"$C_1$", False, r"$C_1=3+\delta\|\beta^*\|_1/e_q$"),
+        ("C1", "C1", r"$C_1$", False, r"$C_1=3+\delta\|\boldsymbol{\beta}^*\|_1/e_q$"),
         (
             "C2",
             "C2",
             r"$C_2$",
             False,
-            r"$C_2=3e_q+(2MC_1+\delta C_1+\delta)\|\beta^*\|_1$",
+            r"$C_2=3e_q+(2MC_1+\delta C_1+\delta)\|\boldsymbol{\beta}^*\|_1$",
         ),
-        ("C3", "C3", r"$C_3$", True, r"$C_3=4C_1^2\|\beta^*\|_1^2$"),
+        ("C3", "C3", r"$C_3$", True, r"$C_3=4C_1^2\|\boldsymbol{\beta}^*\|_1^2$"),
         (
             "C4",
             "C4",

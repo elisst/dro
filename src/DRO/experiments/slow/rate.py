@@ -134,28 +134,22 @@ def plot_rates(config, rows, output):
 
     reference = 0.65 * min(final_errors) * (n / n[-1]) ** -0.5
     axis.plot(n, reference, "--", color="black", linewidth=1.2)
+
+    # position consistently across short and full grids on the logarithmic axis
+    label_n = n[0] * (n[-1] / n[0]) ** 0.09
+    label_error = 0.65 * min(final_errors) * (label_n / n[-1]) ** -0.5
     axis.annotate(
         r"$n^{-1/2}$",
-        (n[0] * 1.10, reference[0] * 0.80),
-        xytext=(0, -12),
+        (label_n, label_error),
+        xytext=(0, -10),
         textcoords="offset points",
-        ha="left",
+        ha="center",
         va="top",
     )
-    axis.set_ylabel(r"$\|X(\hat\beta-\beta^*)\|_2^2/n$")
+    axis.set_ylabel(r"$\|X(\hat{\boldsymbol{\beta}}-\boldsymbol{\beta}^*)\|_2^2/n$")
     style_axis(axis, log_y=True)
     axis.set_ylim(top=axis.get_ylim()[1] * 1.2)
     exponent_legend(axis).set_loc("upper right")
-    if config.fit_n_min is not None:
-        axis.text(
-            0.03,
-            0.03,
-            rf"fits: $n\geq {config.fit_n_min}$",
-            transform=axis.transAxes,
-            ha="left",
-            va="bottom",
-            fontsize=9,
-        )
     output.mkdir(parents=True, exist_ok=True)
     figure.savefig(output / "paper.pdf", bbox_inches="tight", pad_inches=0.015)
 
@@ -163,7 +157,7 @@ def plot_rates(config, rows, output):
     axis.set_title(
         r"Prediction error: mean $\pm$ SEM"
         + "\n"
-        + rf"$d=2,\ \beta^*=(2,-1),\ \sigma^2={config.sigma_sq:g},\ k={config.k}$"
+        + rf"$d=2,\ \boldsymbol{{\beta}}^*=(2,-1),\ \sigma^2={config.sigma_sq:g},\ k={config.k}$"
         + "\n"
         + rf"$1-\rho_n={config.c:g}/\sqrt{{n}},\ K={config.K:g},\ \gamma={config.gamma:g}$"
         + "\n"
@@ -185,7 +179,12 @@ def main(argv=None):
     parser.add_argument("--n", type=int, nargs="+", default=config.n)
     parser.add_argument("--p", type=float, nargs="+", default=config.p)
     parser.add_argument("--k", type=int, default=config.k, help="repetitions")
-    parser.add_argument("--c", type=float, default=config.c, help="paper constant c0 in rho_n = 1-c0/sqrt(n)")
+    parser.add_argument(
+        "--c",
+        type=float,
+        default=config.c,
+        help="paper constant c0 in rho_n = 1-c0/sqrt(n)",
+    )
     parser.add_argument("--sigma-sq", type=float, default=config.sigma_sq)
     parser.add_argument("--K", type=float, default=config.K)
     parser.add_argument("--gamma", type=float, default=config.gamma)
@@ -197,7 +196,7 @@ def main(argv=None):
         help="fit slopes using only sample sizes at least this large",
     )
     parser.add_argument(
-        "--output-directory", type=Path, default=root / "plots" / "slow" / "rate"
+        "--output-directory", type=Path, default=root / "plots" / "slow"
     )
     args = vars(parser.parse_args(argv))
     output = args.pop("output_directory")

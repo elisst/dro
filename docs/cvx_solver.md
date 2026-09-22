@@ -33,15 +33,19 @@ We rescale the problem to enhance numerical stability, since the magnitude of th
 Before forming the model, `minimize` chooses $s=\sqrt{\operatorname{mean}(y^2)}$, or $s=1$ when $y=0$. It solves using $\widetilde y=y/s$ and $\widetilde\beta$ representing $\beta/s$. This reduces sensitivity to the units in which the response $y$ is recorded.
 
 For every feasible perturbation length $t_i$,
+
 $$
 |x_i^\top\widetilde\beta-\widetilde y_i|+t_i\|\widetilde\beta\|_*
 =\frac1s\bigl(|x_i^\top\beta-y_i|+t_i\|\beta\|_*\bigr).
 $$
+
 Squaring and maximizing over the same length budget proves
+
 $$
 V_{\delta,y/s}(\beta/s)=\frac{V_{\delta,y}(\beta)}{s^2},
 \qquad \widehat\beta=s\widehat{\widetilde\beta}.
 $$
+
 Neither $X$ nor $\delta$ changes, meaning transport still measures movement in the original covariate space.
 
 ```python
@@ -84,14 +88,18 @@ elif np.isinf(p):  # adversarial training
 These formulas are Corollary 1 of the paper. Each becomes `cp.Problem(cp.Minimize(objective))`.
 
 **Intermediate exponents.** Theorem 6, Eq. (22), writes $nV_\delta(\beta)=\max_{\gamma\geq0}K(\beta,\gamma)$, with $K$ given in the [gamma formulation](robust_risk.md#gamma-formulation):
+
 $$
 K(\beta,\gamma)=n^{1/p}\delta B\left(\sum_i\gamma_i\right)^{1/q}
 +\sum_i |r_i|\gamma_i^{1/q}-\frac14\sum_i\gamma_i^{2/q}.
 $$
+
 Fitting coefficients therefore solves
+
 $$
 \min_\beta\max_{\gamma\geq0}K(\beta,\gamma).
 $$
+
 For fixed $\gamma$, the terms involving $\beta$ are nonnegative multiples of a norm and absolute residuals, hence convex. For fixed $\beta$, the power exponents make $K$ concave in $\gamma$. We use [`DSP`](https://github.com/cvxgrp/dsp) to solve this saddle problem.
 
 ```python
@@ -117,7 +125,10 @@ After solving, the coefficients are multiplied by $s$, and the risk is evaluated
 ```python
 beta_hat = beta.value * scale
 value = float(risk.primal(beta_hat))
-model_value = float(problem.value) * scale**2 / (n if formulation == "dsp-gamma" else 1)
+model_value = (
+    float(problem.value) * scale**2
+    / (n if formulation == "dsp-gamma" else 1)
+)
 ```
 
 Diagnostics retain enough information to inspect the numerical fit and compare the independent risk evaluations:
@@ -132,7 +143,9 @@ The code accepts `optimal` and `optimal_inaccurate` statuses when coefficients a
 `CLARABEL` is the default solver. Other options are forwarded to the selected solver, for example:
 
 ```python
-second = CvxOptimizer(risk).minimize(solver="SCS", eps_abs=1e-8, eps_rel=1e-8)
+second = CvxOptimizer(risk).minimize(
+    solver="SCS", eps_abs=1e-8, eps_rel=1e-8
+)
 print(fit.value, second.value)
 ```
 

@@ -1,10 +1,12 @@
 # Evaluate the robust risk
 
 [`RobustRisk`](../src/DRO/robust_risk.py) evaluates the risk at a fixed coefficient vector. Write $r=X\beta-y$ and $B=\|\beta\|_*$. Theorem 1, Eq. (7) of the paper gives, for finite $p$,
+
 $$
 V_\delta(\beta)=\max_{t_i\geq0:\,\sum_i t_i^p\leq n\delta^p}
 \frac{1}{n} \sum_{i=1}^n (|r_i|+Bt_i)^2.
 $$
+
 At $p=\infty$, the constraint becomes $0\leq t_i\leq\delta$ for every observation.
 
 ## Evaluate and compare
@@ -21,8 +23,11 @@ beta = np.array([0.8, -0.4, 0.1])
 
 # eval risk
 risk = RobustRisk(X, y, delta=0.15, p=3.0, norm=np.inf)
-primal = risk.primal(beta) # risk at beta using primal solver (scalar reduction)
-dual = risk.dual(beta) # risk at beta using dual solver (saddle point formulation)
+# risk at beta using primal solver (scalar reduction)
+primal = risk.primal(beta)
+
+# risk at beta using dual solver (saddle point formulation)
+dual = risk.dual(beta)
 
 print(primal, dual, abs(primal - dual))
 ```
@@ -43,9 +48,11 @@ if self.delta == 0 or B == 0:
 ```
 
 **Infinite exponent.** Since $B>0$, Each term $(|r_i|+Bt_i)^2$ is nondecreasing in $t_i \geq 0$, so $t_i=\delta$ attains the maximum:
+
 $$
 V_\delta(\beta)=\frac1n\sum_i(|r_i|+\delta B)^2.
 $$
+
 This is the adversarial training case of Corollary 1.
 
 ```python
@@ -54,13 +61,17 @@ if np.isinf(self.p):
 ```
 
 **Quadratic exponent.** For $p=2$, the budget is $\|t\|_2\leq\sqrt n\,\delta$. The triangle inequality gives
+
 $$
 \|\,|r|+Bt\|_2\leq\|r\|_2+B\|t\|_2\leq\|r\|_2+B\sqrt n\,\delta.
 $$
+
 For $r\neq0$, equality holds at $t=\sqrt n\,\delta\,|r|/\|r\|_2$ (the two vectors are aligned and the budget is used in full). If $r=0$, take $t_i=\delta$. Squaring gives Corollary 1's formula
+
 $$
 V_\delta(\beta)=\left(\frac{\|r\|_2}{\sqrt n}+\delta B\right)^2.
 $$
+
 With `norm=np.inf`, $B=\|\beta\|_1$ and thus we get the squared square-root-Lasso objective.
 
 ```python
@@ -74,20 +85,24 @@ if self.p == 2:
 ## Scalar reduction for intermediate exponents
 
 The remaining branch has $2<p<\infty$ and $\delta,B>0$. Lemma 3, Eq. (16), gives
+
 $$
 nV_\delta(\beta)=\min_{\lambda>0}
 \left[n\delta^p\lambda+\sum_i\max_{t\geq0}f_i(t;\lambda)\right],
 \qquad f_i(t;\lambda)=(|r_i|+Bt)^2-\lambda t^p.
 $$
+
 Thus, to evaluate the risk we need to solve the $n$ inner maximums as well as the outer minimum. Both $\mathrm{min}$ and $\mathrm{max}$ are scalar problems, which we solve using functions from `SciPy`.
 
 ### Why scalar minimizers apply
 
 Following Appendix A.3,
+
 $$
 f_i'(t)=2B(|r_i|+Bt)-p\lambda t^{p-1},\qquad
 f_i''(t)=2B^2-p(p-1)\lambda t^{p-2}.
 $$
+
 For $p>2$, $f_i''$ decreases from a positive value to $-\infty$. Thus $f_i'$ first increases and then decreases. It starts nonnegative, is positive for small $t>0$, and tends to $-\infty$, so it crosses zero exactly once on $(0,\infty)$. Hence $f_i$ is unimodal, with a unique positive maximum, including when $r_i=0$.
 
 For fixed $t$, $f_i(t;\lambda)$ is affine in $\lambda$. Its maximum over $t$ is therefore convex in $\lambda$, and adding $n\delta^p\lambda$ preserves convexity. The code can minimize the negative inner objectives and then minimize the outer objective using `SciPy`. It does not need to solve the derivative equations itself.
@@ -95,15 +110,19 @@ For fixed $t$, $f_i(t;\lambda)$ is affine in $\lambda$. Its maximum over $t$ is 
 ### Scale the lengths and loss
 
 The Lagrange multiplier $\lambda$ enforcing the transport budget can become extremely large or small, depending on the radius $\delta$, the exponent $p$, and the unit of the response $y$. Computing $\delta^p$ directly can also cause numerical overflow or underflow. To avoid these numerical difficulties, `_solve_finite_p` rescales the problem:
+
 $$
 u_i=\frac{t_i}{\delta},\qquad
 s=\max\{\max_i|r_i|,\delta B\},\qquad
 a_i=\frac{|r_i|}{s},\qquad b=\frac{\delta B}{s}.
 $$
+
 Here, $u_i$ measures movement relative to the radius $\delta$, so the budget becomes $\frac1n\sum_i u_i^p\leq1$. $s$ scales the residual and movement contributions so that $0\leq a_i\leq1$ and $0<b\leq1$. The solver works with the corresponding scaled multiplier
+
 $$
 \widetilde\lambda=\frac{\lambda\delta^p}{s^2},
 $$
+
 without needing to compute the unscaled $\lambda$ or $\delta^p$. Since this branch has $\delta,B>0$, we know that $s>0$ and are safe to divide.
 ```python
 scale = max(float(np.max(residual_abs)), self.delta * B)
@@ -112,12 +131,15 @@ b = self.delta * B / scale
 ```
 
 Substituting $t=\delta u$ gives
+
 $$
-(|r_i|+Bt)^2-\lambda t^p = \left(s a_i + \frac{bs}{\delta} \delta u \right)^2 - \lambda u^p \delta^p 
+(|r_i|+Bt)^2-\lambda t^p = \left(s a_i + \frac{bs}{\delta} \delta u \right)^2 - \lambda u^p \delta^p
 = s^2 \left[ \left( a_i + b u \right)^2 - \frac{u^p \lambda \delta^p}{s^2} \right]
 =s^2\left[(a_i+bu)^2-\widetilde\lambda u^p\right].
 $$
+
 Consequently,
+
 $$
 \frac{nV_\delta(\beta)}{s^2}
 =\min_{\widetilde\lambda>0}H(\widetilde\lambda),
@@ -127,18 +149,22 @@ H(\widetilde\lambda)
 \sum_i\max_{u\geq0}
 \left[(a_i+bu)^2-\widetilde\lambda u^p\right].
 $$
+
 The code's `lam` represents the scaled multiplier $\widetilde\lambda$. Multiplying the optimum by `scale**2` restores the summed squared loss in the original response units and dividing by $n$ gives the mean risk $V_\delta(\beta)$. This rescaling leaves the input radius and mathematical risk unchanged.
 
 ### Bound the multiplier search
 
 Before introducing the multiplier $\widetilde{\lambda}$, the scaled problem is
+
 $$
 \max_{\substack{u_i\geq0 \\ \frac{1}{n} \sum_i u_i^p\leq 1}}
 \sum_i(a_i+bu_i)^2.
 $$
+
 Since $b>0$, the maximizing lengths $\{ u_i^\star \}_{i=1}^n$ use the full budget since increasing any length increases its loss contribution $(a_i+bu_i)^2$.
 
 Duality replaces this constrained maximization with
+
 $$
 \min_{\widetilde\lambda>0}H(\widetilde\lambda),
 \qquad
@@ -147,29 +173,36 @@ H(\widetilde\lambda)
 \sum_i\max_{u\geq0}
 \left[(a_i+bu)^2-\widetilde\lambda u^p\right].
 $$
+
 The inner maximizations now impose only $u\geq0$, i.e., they no longer enforce the shared budget $\frac{1}{n} \sum_i u_i^p\leq 1$. For each trial multiplier $\widetilde\lambda$, every observation independently chooses its preferred movement length $u$ at that price. *These lengths may collectively exceed or underspend the budget*. The penalized objective above does not necessarily increase with $u$, because the penalty $-\widetilde\lambda u^p$ eventually dominates the loss (as $\widetilde{\lambda}$ increases from $0$).
 
 The outer minimization adjusts the multiplier $\widetilde{\lambda}$ until the inner maximizers use exactly the budget. Writing their lengths as $u_i(\widetilde\lambda)$, the derivative of the optimized objective is
+
 $$
 H'(\widetilde\lambda)=n-\sum_i u_i(\widetilde\lambda)^p.
 $$
+
 By the chain rule, the derivative has a direct term and a term through the maximizing lengths where the latter vanishes because each inner objective has zero derivative with respect to length at its maximum. Now:
 
-- If the lengths exceed the budget, i.e. $\frac{1}{n} \sum_i u_i(\widetilde{\lambda})^p > 1 \Leftrightarrow \sum_i u_i(\widetilde{\lambda})^p > n$, this derivative is negative, so increasing $\widetilde{\lambda}$ reduces $H$ (movement more expensive). 
-- If the lengths do not exceed the budget, i.e. $\sum_i u_i(\widetilde{\lambda})^p < n$, this derivative is positive, so decreasing $\widetilde{\lambda}$ reduces $H$ (movement cheaper). 
+- If the lengths exceed the budget, i.e. $\frac{1}{n} \sum_i u_i(\widetilde{\lambda})^p > 1 \Leftrightarrow \sum_i u_i(\widetilde{\lambda})^p > n$, this derivative is negative, so increasing $\widetilde{\lambda}$ reduces $H$ (movement more expensive).
+- If the lengths do not exceed the budget, i.e. $\sum_i u_i(\widetilde{\lambda})^p < n$, this derivative is positive, so decreasing $\widetilde{\lambda}$ reduces $H$ (movement cheaper).
 
-At the optimal multiplier, $H'=0$ and the budget is met exactly. Thus the outer choice of multiplier enforces the original constraint that the individual inner problems remain unconstrained apart from nonnegativity. The code minimizes $H$ directly, and this derivative explains why that minimization finds the budget balance. 
+At the optimal multiplier, $H'=0$ and the budget is met exactly. Thus the outer choice of multiplier enforces the original constraint that the individual inner problems remain unconstrained apart from nonnegativity. The code minimizes $H$ directly, and this derivative explains why that minimization finds the budget balance.
 
 To find an interval containing the optimal multiplier, we use the reference lengths $u_i=1$, which satisfy $\frac1n\sum_i u_i^p=1$. This does not assume that the optimal lengths are uniform. Instead, we ask *which multiplier makes $u=1$ maximize each observation's penalized objective*. Differentiating its inner objective with respect to $u$, and setting the derivative to zero at $u=1$, gives
+
 $$
 \left.\frac{\partial}{\partial u}
 \left[(a_i+bu)^2-\widetilde\lambda u^p\right]\right|_{u=1}
 =2b(a_i+b)-p\widetilde\lambda=0.
 $$
+
 Thus observation $i$ chooses length one at the threshold
+
 $$
 \widetilde\lambda_i=\frac{2b(a_i+b)}p.
 $$
+
 Each observation has its own threshold $\widetilde\lambda_i$ at which its maximizing length equals one, but all observations share a single multiplier $\widetilde\lambda$. Below an observation's threshold, its maximizing length exceeds one and above its threshold, its maximizing length is less than one.
 
 We therefore take $\widetilde\lambda_{\rm lo}=\min_i\widetilde\lambda_i$ and $\widetilde\lambda_{\rm hi}=\max_i\widetilde\lambda_i$:
@@ -182,9 +215,11 @@ lambda_hi = 2 * b * (float(np.max(a)) + b) / self.p
 At the lower bound, movement is cheap, meaning observations whose threshold equals $\widetilde\lambda_{\rm lo}$ choose length one, and every other observation chooses a length greater than one. Thus the average cost $\frac1n\sum_i u_i^p$ is at least one. At the upper bound, movement is expensive, meaning observations whose threshold equals $\widetilde\lambda_{\rm hi}$ choose length one, and every other observation chooses a length less than one. The average cost is therefore at most one. Several observations may share either endpoint threshold.
 
 Now imagine increasing the shared multiplier from the lower bound to the upper bound. Every maximizing length decreases continuously, so the average cost also decreases continuously. When the bounds differ, it starts above one and ends below one, i.e., it cannot get from one side to the other without passing through
+
 $$
 \frac1n\sum_i u_i(\widetilde\lambda)^p=1.
 $$
+
 This crossing is the budget balance we seek. It is unique because the average cost is strictly decreasing. As shown above, this is also where $H'(\widetilde\lambda)=0$, so it gives the minimizing multiplier. The individual lengths can differ from one -- some observations can use more movement and others less -- provided their average cost equals one.
 
 If the bounds coincide, all observations have the same threshold (equivalently, all $a_i$ are equal), so that shared multiplier makes every maximizing length equal one. The budget is already balanced and no search is needed. In $H$, the outer term $n\widetilde\lambda$ then cancels the sum of the penalties $\sum_i\widetilde\lambda u_i^p=n\widetilde\lambda$, leaving $\sum_i(a_i+b)^2$. Multiplying by `scale**2` restores the summed risk in the original response units:
@@ -195,9 +230,11 @@ if lambda_lo == lambda_hi:
 ```
 
 Otherwise, the code searches using the relative multiplier
+
 $$
 \rho=\frac{\widetilde\lambda}{\widetilde\lambda_{\rm hi}}.
 $$
+
 This makes the upper search bound one and measures the absolute search tolerance relative to `lambda_hi`.
 
 ```python
@@ -218,9 +255,11 @@ result = minimize_scalar(
 ### Compute the inner maxima
 
 For a fixed trial multiplier $\widetilde{\lambda}$, `_maximize_t` computes
+
 $$
 \max_{u\geq0}\left[(a_i+bu)^2-\widetilde\lambda u^p\right]
 $$
+
 for every observation. These are independent problems since each observation has its own $a_i$, while $b$ and $\widetilde\lambda$ are shared.
 
 The code uses minimization routines, so it changes the sign of the objective:
@@ -261,11 +300,13 @@ Once the outer minimization succeeds, `_solve_finite_p` multiplies `result.fun` 
 ## Gamma formulation
 
 For an independent evaluation, `dual` uses Theorem 6, Eq. (22):
+
 $$
 nV_\delta(\beta)=\max_{\gamma\geq0}K(\beta,\gamma),\qquad
 K(\beta,\gamma)=n^{1/p}\delta B\left(\sum_i\gamma_i\right)^{1/q}
 +\sum_i |r_i|\gamma_i^{1/q}-\frac14\sum_i\gamma_i^{2/q}.
 $$
+
 Here $K(\beta,\gamma)=K(\beta,\gamma^{1/q})$ in the paper's notation. Since $1/q\leq1$ and $2/q\geq1$, the first two terms are concave in $\gamma$ and the last is negative convex. For fixed $\beta$, `CVXPY` can maximize this concave expression directly:
 
 ```python

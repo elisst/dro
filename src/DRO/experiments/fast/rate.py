@@ -28,6 +28,10 @@ from DRO.experiments.fast.readwrite import (
 )
 
 
+# Fixed RE constant used in the fast-rate theorem (also when M > 1).
+KAPPA = 1.0 / np.sqrt(6.0)
+
+
 def default_config():
     """
     experiment settings. sample sizes and repetitions can be extended later
@@ -40,7 +44,7 @@ def default_config():
     # sample sizes n, exponents p, and repetitions k
     n = (2560, 5120, 10240, 20480, 40960, 61440, 81920, 122880, 163840)
     p = (2.0, 3.0, 6.0, np.inf)
-    k = 3  # nr repeats
+    k = 10  # nr repeats
     fit_min_n = 40960  # fit slopes after this n to avoid small n influence
 
     # data and sparse signal
@@ -101,7 +105,7 @@ def run_one(config, n, p, seed):
     x_transpose_noise_inf = float(np.linalg.norm(X.T @ noise, np.inf))
 
     # the smallest Gram eigenvalue certifies the RE inequality for every vector
-    kappa = 0.0 if n < config.d else np.sqrt(
+    kappa_certificate = 0.0 if n < config.d else np.sqrt(
         max(np.linalg.eigvalsh(X.T @ X / n).min(), 0)
     )
 
@@ -115,7 +119,7 @@ def run_one(config, n, p, seed):
         "prediction_error": prediction_error,
         "epsilon_q_norm": epsilon_q_norm,
         "x_transpose_noise_inf": x_transpose_noise_inf,
-        "kappa_certificate": kappa,
+        "kappa_certificate": kappa_certificate,
         "seed": seed,
         **{f"solver_{key}": value for key, value in fit.diagnostics.items()},
     }
@@ -139,15 +143,23 @@ def compute_bounds(row, config, n, p):
     # theorem 3 constants
     M = config.M
     s = config.s
-    kappa = float(row["kappa_certificate"])
+    kappa = KAPPA
     C1 = 3.0 + delta * beta_star_l1 / e_q
     C2 = 3.0 * e_q + (2.0 * M * C1 + delta * C1 + delta) * beta_star_l1
 
-    # fast bound = delta^2 max{4 C1^2 ||beta*||_1^2, 16 C2^2 s^2 / kappa^2}
-    norm_component = 4.0 * C1**2 * beta_star_l1**2
-    re_component = 16.0 * C2**2 * s**2 / kappa**2 if kappa > 0 else np.inf
-    maximum_component = max(norm_component, re_component)
+    C3 = 4.0 * C1**2 * beta_star_l1**2
+    C4 = 16.0 * C2**2 * s**2 / kappa**2
+
+    # fast bound = delta^2 max{C3, C4}
+    maximum_component = max(C3, C4)
     bound = delta**2 * maximum_component
+
+    # Accept saved fits with the earlier constant names when refreshing quantities.
+    row = {
+        key: value
+        for key, value in row.items()
+        if key not in {"C", "H", "norm_component", "re_component"}
+    }
 
     # return the fit together with the theorem quantities
     return {
@@ -159,15 +171,16 @@ def compute_bounds(row, config, n, p):
         "radius": delta,
         "delta_bar": delta_bar,
         "radius_ratio": delta / delta_bar,
-        "C": C1,
-        "H": C2,
-        "norm_component": norm_component,
-        "re_component": re_component,
+        "kappa": kappa,
+        "C1": C1,
+        "C2": C2,
+        "C3": C3,
+        "C4": C4,
         "maximum_component": maximum_component,
         "fast_rate_bound": bound,
         "error_bound_ratio": float(row["prediction_error"]) / bound,
         "radius_assumption_holds": delta > delta_bar,
-        "re_assumption_holds": kappa > 0,
+        "re_assumption_holds": float(row["kappa_certificate"]) >= kappa,
     }
 
 
@@ -242,7 +255,8 @@ def run(config, directory=None, *, read_only=False):
                     key = f"{n}:{p:g}:{repetition}"
                     seed = int(hashlib.sha256(key.encode()).hexdigest()[:8], 16)
                     row = run_one(config, n, p, seed)
-                    save_run(path, row, metadata)
+                # Refresh derived quantities in cached fits without refitting.
+                save_run(path, row, metadata)
                 rows.append(row)
             results[p].append(rows)
             mean_error = np.mean([row["prediction_error"] for row in rows])

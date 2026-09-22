@@ -22,7 +22,7 @@ from matplotlib.ticker import (
 )
 import numpy as np
 
-from DRO.experiments.fast.rate import compute_bounds, default_config
+from DRO.experiments.fast.rate import KAPPA, compute_bounds, default_config
 from DRO.experiments.fast.readwrite import config_fingerprint, load_run, run_metadata
 
 # sizes are in inches and points, intended for one paper column
@@ -218,12 +218,13 @@ def plot_diagnostic(config, results, output, filename, key, label, log_y, title)
     if key == "radius_ratio":
         axis.axhline(1, color="black", linestyle="--", linewidth=1)
     if key == "kappa_certificate":
-        limit = config.M / np.sqrt(3)
+        limit = KAPPA
         axis.axhline(limit, color="black", linestyle="--", linewidth=1)
         axis.annotate(
-            r"$M/\sqrt{3}$",
+            r"$\kappa=1/\sqrt{6}$",
             (config.n[0], limit),
-            xytext=(4, -13),
+            xytext=(4, 6),
+            va="bottom",
             textcoords="offset points",
             fontsize=10,
         )
@@ -277,30 +278,36 @@ def plot_results(config, results, output):
             False,
             r"Radius assumption: $\delta/\bar\delta>1$",
         ),
-        ("C1", "C", r"$C_1$", False, r"$C_1=3+\delta\|\beta^*\|_1/e_q$"),
+        ("C1", "C1", r"$C_1$", False, r"$C_1=3+\delta\|\beta^*\|_1/e_q$"),
         (
             "C2",
-            "H",
+            "C2",
             r"$C_2$",
             False,
             r"$C_2=3e_q+(2MC_1+\delta C_1+\delta)\|\beta^*\|_1$",
         ),
-        ("A", "norm_component", r"$A$", True, r"$A=4C_1^2\|\beta^*\|_1^2$"),
-        ("D", "re_component", r"$D$", True, r"$D=16C_2^2s^2/\kappa^2$"),
-        ("max", "maximum_component", r"$\max\{A,D\}$", True, r"$\max\{A,D\}$"),
+        ("C3", "C3", r"$C_3$", True, r"$C_3=4C_1^2\|\beta^*\|_1^2$"),
+        (
+            "C4",
+            "C4",
+            r"$C_4$",
+            True,
+            r"$C_4=16C_2^2s^2/\kappa^2,\quad\kappa=1/\sqrt{6}$",
+        ),
+        ("max", "maximum_component", r"$\max\{C_3,C_4\}$", True, r"$\max\{C_3,C_4\}$"),
         (
             "bound",
             "fast_rate_bound",
             r"$R_{\mathrm{fast}},\ E_n$",
             True,
-            r"$R_{\mathrm{fast}}=\delta^2\max\{A,D\}$; dashed: prediction error",
+            r"$R_{\mathrm{fast}}=\delta^2\max\{C_3,C_4\}$; dashed: prediction error",
         ),
         (
             "re_certificate",
             "kappa_certificate",
-            r"$\kappa$",
+            r"$\sqrt{\max\{\lambda_{\min}(G),0\}}$",
             False,
-            r"$\kappa=\sqrt{\lambda_{\min}(X^\top X/n)}$",
+            r"RE certificate: $G=X^\top X/n$",
         ),
     ]
     for filename, key, label, log_y, title in plots:

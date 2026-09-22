@@ -27,6 +27,7 @@ from DRO.experiments.fast.readwrite import config_fingerprint, load_run, run_met
 
 # sizes are in inches and points, intended for one paper column
 FIGSIZE = (3.5, 2.35)
+RATE_FIGSIZE = (3.5, 1.95)
 COLORS = {2: "#CC79A7", 3: "#D55E00", 6: "#F0E442", np.inf: "#009E73"}
 MARKERS = {2: "o", 3: "s", 6: "^", np.inf: "D"}
 plt.rcParams.update(
@@ -58,9 +59,9 @@ def exponent_label(p):
     return r"$p=\infty$" if np.isinf(p) else rf"$p={p:g}$"
 
 
-def new_figure():
+def new_figure(figsize=FIGSIZE):
     """keep dimensions and margins consistent across the figures"""
-    figure, axis = plt.subplots(figsize=FIGSIZE, layout="constrained")
+    figure, axis = plt.subplots(figsize=figsize, layout="constrained")
     figure.get_layout_engine().set(w_pad=0.02, h_pad=0.02, wspace=0, hspace=0)
     return figure, axis
 
@@ -135,7 +136,8 @@ def save_figure(figure, axis, output, name, config, title):
     figure.savefig(directory / "paper.pdf", bbox_inches="tight", pad_inches=0.015)
 
     # extra height is only for the title; the paper copy stays compact
-    figure.set_size_inches(FIGSIZE[0], FIGSIZE[1] + 0.95)
+    width, height = figure.get_size_inches()
+    figure.set_size_inches(width, height + 0.95)
     axis.set_title(
         title + "\n" + config_title(config), fontsize=11, pad=5, linespacing=1.3
     )
@@ -174,7 +176,7 @@ def plot_prediction_rates(config, results, output):
     """plot mean prediction error, SEM, fitted slopes, and an n^-1 reference"""
     n = np.asarray(config.n, dtype=float)
     tail = n >= config.fit_min_n
-    figure, axis = new_figure()
+    figure, axis = new_figure(RATE_FIGSIZE)
     final_errors = []
     for index, (p, cells) in enumerate(results.items()):
         errors = [np.array([row["prediction_error"] for row in cell]) for cell in cells]

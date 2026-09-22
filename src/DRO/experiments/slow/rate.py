@@ -17,7 +17,7 @@ from DRO.cvx_solver import CvxOptimizer
 from DRO.robust_risk import RobustRisk
 from DRO.experiments.fast.plot import (
     COLORS,
-    FIGSIZE,
+    RATE_FIGSIZE,
     MARKERS,
     exponent_label,
     exponent_legend,
@@ -95,7 +95,7 @@ def plot_rates(config, rows, output):
     n = np.asarray(config.n, dtype=float)
     fit_mask = n >= (config.fit_n_min or n[0])
     fit_n = n[fit_mask]
-    figure, axis = new_figure()
+    figure, axis = new_figure(RATE_FIGSIZE)
     summary = {}
     final_errors = []
     for index, p in enumerate(config.p):
@@ -141,7 +141,7 @@ def plot_rates(config, rows, output):
     axis.annotate(
         r"$n^{-1/2}$",
         (label_n, label_error),
-        xytext=(0, -10),
+        xytext=(0, -6),
         textcoords="offset points",
         ha="center",
         va="top",
@@ -153,7 +153,7 @@ def plot_rates(config, rows, output):
     output.mkdir(parents=True, exist_ok=True)
     figure.savefig(output / "paper.pdf", bbox_inches="tight", pad_inches=0.015)
 
-    figure.set_size_inches(FIGSIZE[0], FIGSIZE[1] + 0.95)
+    figure.set_size_inches(RATE_FIGSIZE[0], RATE_FIGSIZE[1] + 0.95)
     axis.set_title(
         r"Prediction error: mean $\pm$ SEM"
         + "\n"

@@ -123,6 +123,8 @@ def run(config, output, data_directory):
     # draw data
     rng = np.random.default_rng(config.seed)
     X = rng.standard_normal((config.n, config.d))
+    # since d > n and Gaussian i.i.d. X should be full row rank a.s. but check we anyways
+    assert np.linalg.matrix_rank(X) == config.n, "X must have full row rank"
     noise = np.sqrt(config.sigma_sq) * rng.standard_normal(config.n)
     signal_rng = np.random.default_rng(config.signal_seed)
     beta_star = signal_rng.standard_normal(config.d)

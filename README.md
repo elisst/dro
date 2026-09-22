@@ -76,7 +76,7 @@ PYTHONPATH=src python -m DRO.experiments.fast.rate \
 ```
 See [the experiment docs](docs/fast.md) for dependencies, settings, more about custom runs, and saved-data details.
 
-## Slow-rate experiment (d=2)
+## Slow-rate experiment
 
 Run the default experiment and generate its rate plots in one command. Run from the repository root with your Python environment active.
 

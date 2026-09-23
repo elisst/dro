@@ -132,12 +132,13 @@ def plot_rates(config, rows, output):
         }
         print(f"p={p:g}: slope={slope:.4f}", flush=True)
 
-    reference = 0.65 * min(final_errors) * (n / n[-1]) ** -0.5
+    # anchor the reference to the lowest empirical curve at the largest n
+    reference = min(final_errors) * (n / n[-1]) ** -0.5
     axis.plot(n, reference, "--", color="black", linewidth=1.2)
 
     # position consistently across short and full grids on the logarithmic axis
     label_n = n[0] * (n[-1] / n[0]) ** 0.09
-    label_error = 0.65 * min(final_errors) * (label_n / n[-1]) ** -0.5
+    label_error = min(final_errors) * (label_n / n[-1]) ** -0.5
     axis.annotate(
         r"$n^{-1/2}$",
         (label_n, label_error),

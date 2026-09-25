@@ -14,7 +14,8 @@ see docs/robust_risk.md for the equations, call structure, and examples
 
 import cvxpy as cp
 import numpy as np
-from scipy.optimize import elementwise, minimize_scalar
+from scipy.optimize import brentq, elementwise, minimize_scalar
+from scipy.special import logsumexp
 
 
 class RobustRisk:
@@ -111,6 +112,51 @@ class _ScalarRisk:
             ) ** 2
         # only remaining 2 < p < infty case where delta, B > 0
         return self._solve_finite_p(residual_abs, B)
+
+    def transport(self, a, B):
+        """Return maximizing lengths for nonnegative magnitudes a and B."""
+        delta, p = self.delta, self.p
+        a = np.asarray(a, dtype=float)
+        n = len(a)
+        if delta == 0:
+            return np.zeros(n)
+        if B == 0 or np.all(a == a[0]):
+            return np.full(n, delta)
+        if p == 2:
+            return np.sqrt(n) * delta * a / np.linalg.norm(a)
+        if np.isinf(p):
+            return np.full(n, delta)
+
+        # Write t = delta*u and solve mu*u**(p-1) = a + b*u, with mean(u**p)=1.
+        # Scaling keeps mu between (min(a)+b)/(max(a)+b) and 1.
+        scale = float(np.max(a)) + delta * B
+        a, b = a / scale, delta * B / scale
+        # Zero residuals are valid; log(a)=-inf gives the correct equation.
+        with np.errstate(divide="ignore"):
+            log_a = np.log(a)
+        log_b = np.log(b)
+
+        def log_lengths(mu):
+            # Solve in log(u): the equation is increasing and powers cannot overflow.
+            def stationarity(log_u, log_a):
+                return (p - 1) * log_u + np.log(mu) - np.logaddexp(log_a, log_b + log_u)
+
+            bracket = elementwise.bracket_root(stationarity, -1.0, 1.0, args=(log_a,))
+            if not np.all(bracket.success):
+                raise RuntimeError("could not bracket the transport lengths")
+            result = elementwise.find_root(
+                stationarity, bracket.bracket, args=(log_a,),
+                tolerances={"xatol": 1e-12, "xrtol": 1e-12, "fatol": 0.0, "frtol": 0.0},
+            )
+            if not np.all(result.success):
+                raise RuntimeError("transport lengths did not converge")
+            return result.x
+
+        def budget(mu):
+            return logsumexp(p * log_lengths(mu)) - np.log(n)
+
+        mu = brentq(budget, float(np.min(a)) + b, 1.0, xtol=1e-12)
+        return delta * np.exp(log_lengths(mu))
 
     def _solve_finite_p(self, residual_abs, B):
         """return summed risk for 2 < p < infinity"""

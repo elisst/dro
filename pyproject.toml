@@ -6,11 +6,6 @@ build-backend = "setuptools.build_meta"
 name = "DRO"
 version = "0.1.0"
 description = "Code for DRO project"
-authors = [
-    {name = "Elis Stefansson"},
-    {name = "David Vävinggren"},
-    {name = "Antônio H. Ribeiro"}
-]
 requires-python = ">=3.13"
 readme = "README.md"
 dependencies = [
@@ -30,6 +25,3 @@ pythonpath = ["src"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[project.urls]
-Homepage = "https://github.com/elisst/dro"

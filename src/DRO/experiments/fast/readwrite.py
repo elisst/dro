@@ -33,6 +33,25 @@ def config_fingerprint(config):
     return hashlib.sha256(encoded.encode()).hexdigest()[:12]
 
 
+def data_fingerprint(config):
+    """identify the experiment independently of optimizer and numerical options"""
+    from argparse import Namespace
+
+    return config_fingerprint(Namespace(**{
+        key: value for key, value in vars(config).items()
+        if key not in ("solver", "solver_options")
+    }))
+
+
+def default_directory(config, solver=None):
+    """retain the historical CVX path and use a matching eta sibling"""
+    from pathlib import Path
+
+    solver = solver or getattr(config, "solver", "cvx")
+    prefix = "fast_eta" if solver == "eta" else "fast"
+    return Path(__file__).resolve().parents[4] / "data" / f"{prefix}_{data_fingerprint(config)}"
+
+
 def run_metadata(config, n, p, repetition):
     """record the current settings for one dataset and fit"""
     settings = {**vars(config), "n": n, "p": p, "k": repetition}

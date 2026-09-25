@@ -17,6 +17,7 @@ from time import perf_counter
 import numpy as np
 
 from DRO.cvx_solver import CvxOptimizer
+from DRO.eta_solver import EtaOptimizer
 from DRO.robust_risk import RobustRisk
 
 from DRO.experiments.fast.readwrite import (
@@ -25,6 +26,8 @@ from DRO.experiments.fast.readwrite import (
     run_metadata,
     save_run,
     load_run,
+    data_fingerprint,
+    default_directory,
 )
 
 
@@ -94,7 +97,9 @@ def run_one(config, n, p, seed):
     # fit robust regression
     risk = RobustRisk(X, y, delta, p, norm=config.ground_norm)
     started = perf_counter()
-    fit = CvxOptimizer(risk).minimize()
+    solver = getattr(config, "solver", "cvx")
+    optimizer = {"cvx": CvxOptimizer, "eta": EtaOptimizer}[solver]
+    fit = optimizer(risk).minimize(**getattr(config, "solver_options", {}))
     fit_seconds = perf_counter() - started
     beta_hat = fit.beta
 
@@ -216,14 +221,34 @@ def summarize(config, results):
     return summary
 
 
-def run(config, directory=None, *, read_only=False):
+def dataset_seed(n, p, repetition):
+    """stable dataset index, independent of solver and numerical options"""
+    key = f"{n}:{p:g}:{repetition}"
+    return int(hashlib.sha256(key.encode()).hexdigest()[:8], 16)
+
+
+def run(config, directory=None, *, read_only=False, seed_directory=None):
     """loop over the requested fits and save the experiment in one folder"""
 
     # choose the folder from the experiment settings unless one is supplied
     if directory is None:
-        root = Path(__file__).resolve().parents[4]
-        directory = root / "data" / f"fast_{config_fingerprint(config)}"
+        directory = default_directory(config)
+        if seed_directory is None:
+            peer = "cvx" if getattr(config, "solver", "cvx") == "eta" else "eta"
+            candidate = default_directory(config, peer)
+            if (candidate / "config.json").exists():
+                seed_directory = candidate
     directory = Path(directory)
+
+    # Historical datasets retain their saved seeds. New paired runs inherit them.
+    seed_config = None
+    if seed_directory is not None:
+        seed_directory = Path(seed_directory)
+        seed_config = argparse.Namespace(**json.loads(
+            (seed_directory / "config.json").read_text()
+        )["config"])
+        if data_fingerprint(seed_config) != data_fingerprint(config):
+            raise ValueError(f"seed-source configuration mismatch: {seed_directory}")
     directory.mkdir(parents=True, exist_ok=True)
 
     # keep one data and radius configuration per folder
@@ -244,16 +269,21 @@ def run(config, directory=None, *, read_only=False):
             for repetition in range(1, config.k + 1):
                 path = directory / f"n={n}_p={p:g}_rep={repetition}.h5"
                 metadata = run_metadata(config, n, p, repetition)
+                seed = dataset_seed(n, p, repetition)
+                seed_path = None if seed_directory is None else seed_directory / path.name
+                has_reference = seed_path is not None and seed_path.exists()
+                if has_reference:
+                    reference = load_run(seed_path, run_metadata(seed_config, n, p, repetition))
+                    seed = int(reference["seed"])
                 if path.exists():
                     row = load_run(path, metadata)
+                    if has_reference and int(row["seed"]) != seed:
+                        raise ValueError(f"paired seed mismatch: {path} and {seed_path}")
                     row = compute_bounds(row, config, n, p)
                 else:
                     if read_only:
                         raise FileNotFoundError(f"missing saved fit: {path}")
                     print(f"fitting p={p:g} n={n} repetition={repetition}", flush=True)
-                    # seeds depend on the dataset index, not on parameter names
-                    key = f"{n}:{p:g}:{repetition}"
-                    seed = int(hashlib.sha256(key.encode()).hexdigest()[:8], 16)
                     row = run_one(config, n, p, seed)
                 # Refresh derived quantities in cached fits without refitting.
                 save_run(path, row, metadata)
@@ -276,6 +306,10 @@ def main(argv=None):
     defaults = default_config()
     parser = argparse.ArgumentParser(
         description="fast-rate experiment with incremental saving"
+    )
+    parser.add_argument(
+        "--solver", choices=("cvx", "eta"), default="cvx",
+        help="risk minimizer (eta uses fixed smoothing and weighted ridge)",
     )
     parser.add_argument("--n", type=int, nargs="+", default=defaults.n)
     parser.add_argument("--p", type=float, nargs="+", default=defaults.p)
@@ -309,6 +343,10 @@ def main(argv=None):
         help="folder for fits, config, and summary",
     )
     parser.add_argument(
+        "--seed-directory", type=Path,
+        help="reuse saved dataset seeds from this experiment (new indices use the stable seed rule)",
+    )
+    parser.add_argument(
         "--read-only",
         action="store_true",
         help="read saved fits without running new ones",
@@ -316,6 +354,13 @@ def main(argv=None):
     args = vars(parser.parse_args(argv))
     directory = args.pop("directory")
     read_only = args.pop("read_only")
+    seed_directory = args.pop("seed_directory")
+    # Keep the original CVX cache names and metadata. Eta has a separate cache.
+    solver = args.pop("solver")
+    if solver == "eta":
+        args.update(solver=solver, solver_options=dict(
+            epsilon=1e-6, tol=1e-6, maxiter=1000,
+        ))
     config = defaults
     vars(config).update(args)
 
@@ -323,7 +368,7 @@ def main(argv=None):
     if not 1 <= config.s <= config.d:
         parser.error("require 1 <= s <= d")
 
-    run(config, directory, read_only=read_only)
+    run(config, directory, read_only=read_only, seed_directory=seed_directory)
 
 
 if __name__ == "__main__":

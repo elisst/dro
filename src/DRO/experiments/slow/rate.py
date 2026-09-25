@@ -14,6 +14,7 @@ from time import perf_counter
 import numpy as np
 
 from DRO.cvx_solver import CvxOptimizer
+from DRO.eta_solver import EtaOptimizer
 from DRO.robust_risk import RobustRisk
 from DRO.experiments.fast.plot import (
     COLORS,
@@ -43,6 +44,7 @@ def default_config():
         gamma=0.01,
         seed=20260921,
         fit_n_min=None,
+        solver="cvx",
     )
 
 
@@ -71,7 +73,8 @@ def run(config):
                 print(f"fitting p={p:g} n={n} repetition={repetition + 1}", flush=True)
                 risk = RobustRisk(X, y, delta, p, norm=np.inf)
                 started = perf_counter()
-                fit = CvxOptimizer(risk).minimize()
+                optimizer = {"cvx": CvxOptimizer, "eta": EtaOptimizer}[config.solver]
+                fit = optimizer(risk).minimize()
                 seconds = perf_counter() - started
                 error = np.mean((X @ (fit.beta - beta_star)) ** 2)
                 rows.append(
@@ -79,12 +82,14 @@ def run(config):
                         "n": n,
                         "p": f"{p:g}",
                         "repetition": repetition + 1,
+                        "seed": config.seed + n + repetition,
                         "beta_hat": fit.beta.tolist(),
                         "prediction_error": float(error),
                         "fit_seconds": seconds,
                         "status": fit.diagnostics["status"],
                         "robust_risk": fit.value,
                         "model_value": fit.diagnostics["model_value"],
+                        "diagnostics": fit.diagnostics,
                     }
                 )
     return rows
@@ -177,6 +182,7 @@ def main(argv=None):
     config = default_config()
     root = Path(__file__).resolve().parents[4]
     parser = argparse.ArgumentParser(description="d=2 slow-rate experiment and plot")
+    parser.add_argument("--solver", choices=("cvx", "eta"), default=config.solver)
     parser.add_argument("--n", type=int, nargs="+", default=config.n)
     parser.add_argument("--p", type=float, nargs="+", default=config.p)
     parser.add_argument("--k", type=int, default=config.k, help="repetitions")
@@ -197,11 +203,13 @@ def main(argv=None):
         help="fit slopes using only sample sizes at least this large",
     )
     parser.add_argument(
-        "--output-directory", type=Path, default=root / "plots" / "slow"
+        "--output-directory", type=Path,
     )
     args = vars(parser.parse_args(argv))
     output = args.pop("output_directory")
     vars(config).update(args)
+    if output is None:
+        output = root / "plots" / ("slow_eta" if config.solver == "eta" else "slow")
     rows = run(config)
     summary = plot_rates(config, rows, output)
     settings = {**vars(config), "p": [f"{p:g}" for p in config.p]}

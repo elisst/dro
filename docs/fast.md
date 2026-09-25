@@ -4,10 +4,11 @@ The code lives in [src/DRO/experiments/fast/](../src/DRO/experiments/fast/). `ra
 
 ## Settings
 
-The model is $y=X\beta^*+\varepsilon$. Covariates are independent $\mathrm{Uniform}[-M,M]$, and Gaussian noise has variance $\sigma^2$. The first $s$ coefficients equal $B/s$, so $\|\beta^*\|_1=B$. The radius is $\delta=KM\sqrt{\log(d/\gamma)/n}$ with $\ell_\infty$ ground norm. The default config is specified below.
+The model is $y=X\beta^*+\varepsilon$. Covariates are independent $\mathrm{Uniform}[-M,M]$, and Gaussian noise has variance $\sigma^2$. The first $s$ entries of $\beta^*$ equal $B/s$, so $\|\beta^*\|_1=B$. The radius is $\delta=KM\sqrt{\log(d/\gamma)/n}$ with $\ell_\infty$ ground norm. The default config is specified below.
 
 | Flag | Meaning | Default |
 | --- | --- | --- |
+| `--solver` | optimizer (`cvx` or `eta`) | `cvx` |
 | `--n` | sample-size grid | 9 sizes from 2560 to 163840 |
 | `--p` | Wasserstein exponents | 2, 3, 6, inf |
 | `--k` | repetitions per $(n, p)$ | 10 |
@@ -64,11 +65,9 @@ The RE plot shows $\sqrt{\max\{\lambda_{\min}(G),0\}}$ against $\kappa=1/\sqrt{6
 
 ## Saved fits
 
-Each `data/fast_<config hash>/` folder holds one `n=<n>_p=<p>_rep=<rep>.h5` per fit, including its seed, settings, and theorem quantities. `config.json` records the latest requested grid. `summary.json` gives means, slopes, and theorem checks for the last completed run.
+Each `data/fast_<data config hash>/` (`CVX`) or `data/fast_eta_<data config hash>/` (`eta`) folder holds one `n=<n>_p=<p>_rep=<rep>.h5` per fit, including its seed, settings, and theorem quantities. `config.json` records the latest requested grid. `summary.json` gives means, slopes, and theorem checks for the last completed run.
 
-Existing fits are reused, and their derived constants, bounds, and checks are recomputed and saved using the current formulas. Older constant fields are converted to `C1`–`C4` when refreshed. Add `--read-only` to refresh these saved quantities and the summary without fitting, with an error if a requested fit is missing. Changing `n`, `p`, `k`, or `fit_min_n` keeps the same folder. Other settings change the hash. Extra fits remain available even when the latest requested grid is smaller.
-
-Stored seeds are preserved. New seeds depend on `(n, p, repetition)` and are shared across configurations. Use a separate `--directory` when comparing solvers or numerical environments, since existing fits are reused after software changes.
+Existing fits are reused, and their derived constants, bounds, and checks are recomputed and saved using the current formulas.
 
 ## Custom runs and plots
 
@@ -84,4 +83,29 @@ PYTHONPATH=src python -m DRO.experiments.fast.rate \
 PYTHONPATH=src python -m DRO.experiments.fast.plot \
     --directory /tmp/fast-pilot \
     --output-directory plots/fast-pilot
+```
+
+## Solver selection
+
+Both solvers fit the same statistical problem. The experiment defaults to [CVX](cvx_solver.md) and [eta](eta.md) uses fixed smoothing and stops based on the change in beta. Solver choice does not change the data construction or theorem quantities.
+
+```sh
+PYTHONPATH=src python -m DRO.experiments.fast.rate --solver cvx
+PYTHONPATH=src python -m DRO.experiments.fast.rate --solver eta
+PYTHONPATH=src python -m DRO.experiments.fast.plot \
+    --directory data/fast_eta_9a0f5a9f0d3f \
+    --output-directory plots/fast_eta
+```
+
+For paired custom runs, pass the CVX folder as `--seed-directory` when running eta (or vice versa).
+
+## Paired diagnostics from saved fits
+
+No refitting is needed. The two fit folders, including their `config.json` files, contain the inputs for the accuracy-agreement and runtime diagnostics:
+
+```sh
+PYTHONPATH=src python -m DRO.experiments.fast.eta_cvx_diag \
+    --cvx-directory data/fast_9a0f5a9f0d3f \
+    --eta-directory data/fast_eta_9a0f5a9f0d3f \
+    --output-directory plots/eta_cvx
 ```

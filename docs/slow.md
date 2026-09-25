@@ -1,6 +1,6 @@
 # Slow-rate experiment
 
-[src/DRO/experiments/slow/rate.py](../src/DRO/experiments/slow/rate.py) constructs the data, fits robust regression, and generates the rate plot. See the [README](../README.md#slow-rate-experiment-d2) for installation and the default run command.
+[src/DRO/experiments/slow/rate.py](../src/DRO/experiments/slow/rate.py) constructs the data, fits robust regression, and generates the rate plot. See the [README](../README.md#slow-rate-experiment) for installation and the default run command.
 
 ## Settings
 
@@ -12,6 +12,7 @@ $$
 
 | Flag | Meaning | Default |
 | --- | --- | --- |
+| `--solver` | optimizer (`cvx` or `eta`) | `cvx` |
 | `--n` | sample-size grid | 4096, 6144, 8192, 10240 |
 | `--p` | Wasserstein exponents | 2, 3, 6, inf |
 | `--k` | repetitions per $(n,p)$ | 10 |
@@ -21,7 +22,7 @@ $$
 | `--gamma` | failure-probability parameter in the radius rule | 0.01 |
 | `--seed` | base random seed | 20260921 |
 | `--fit-n-min` | smallest sample size included in slope fits | all plotted sizes |
-| `--output-directory` | folder for both PDFs and results | `plots/slow` |
+| `--output-directory` | folder for both PDFs and results | `plots/slow` (CVX), `plots/slow_eta` (eta) |
 
 Use `--help` for all flags. Assume at least two distinct sample sizes $n$ in increasing order, each divisible by four and satisfying $0<c_0/\sqrt n<1$. Assume $p\geq2$, $0<\gamma<1$, and positive repetitions, noise variance, and radius multiplier. If `--fit-n-min` is supplied, at least two sample sizes must remain in the fit range. The flag `--c` and saved setting `c` represent the paper's $c_0$.
 
@@ -49,7 +50,7 @@ Place these columns side by side to obtain $X=[X_1\;X_2]\in\mathbb R^{n\times2}$
 
 ## Saved results and plots
 
-`plots/slow` contains `paper.pdf`, `with_config.pdf`, and `results.json`. The JSON records the configuration, fitted slopes, and individual fits.
+The selected output folder contains `paper.pdf`, `with_config.pdf`, and `results.json`. The JSON records the configuration, fitted slopes, and individual fits, including seeds, timings, risks, and solver diagnostics. Fit times include the optimizer and final risk evaluation, and exclude data generation and plotting.
 
 Points show mean prediction error $\|X(\widehat{\beta}-\beta^*)\|_2^2/n$, with one standard error of the mean as error bars. Smaller sizes show finite-sample curvature.
 
@@ -74,3 +75,15 @@ PYTHONPATH=src python -m DRO.experiments.slow.rate \
 ```
 
 Rerunning fits every requested dataset and replaces the results in the chosen output folder. Use `--output-directory` to save a separate run.
+
+## Solver selection and paired datasets
+
+Use `--solver cvx` (default) or `--solver eta`; see the [CVX](cvx_solver.md) and [eta](eta.md) solver descriptions. Both use the same data construction, radius, and prediction-error definition. Eta uses fixed smoothing and stops based on the change in beta.
+
+```sh
+PYTHONPATH=src python -m DRO.experiments.slow.rate --solver eta
+```
+
+The default output is `plots/slow` for CVX and `plots/slow_eta` for eta. An explicit `--output-directory` overrides this choice.
+
+The noise seed is `seed + n + repetition_index`, with a zero-based repetition index. It is independent of the solver and exponent, so matching experiment settings and `--seed` reproduce the same datasets across solvers. Each fit records that seed. Rerunning still fits every requested dataset; there is no saved-fit resume mechanism for this experiment.

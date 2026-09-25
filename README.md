@@ -2,8 +2,9 @@
 
 Evaluate and minimize the Wasserstein-$p$ robust squared loss for linear regression.
 
-- [Evaluate the risk at fixed coefficients](docs/robust_risk.md) with `RobustRisk`.
-- [Fit coefficients with `CVXPY`](docs/cvx_solver.md) with `CvxOptimizer(risk)` or the standalone `minimize_cvx` function.
+- [Evaluate the risk at a fixed beta](docs/robust_risk.md) with `RobustRisk`.
+- [Fit beta with `CVXPY`](docs/cvx_solver.md) with `CvxOptimizer(risk)` or the standalone `minimize_cvx` function.
+- [Fit beta with eta updates](docs/eta.md) using `EtaOptimizer(risk)` or `minimize_eta` ($\ell_\infty$ ground norm only).
 
 The docs explain the mathematical formulations, numerical calculations, and input conventions.
 
@@ -15,7 +16,7 @@ Use Python 3.13 or later. Install the package from the repository root.
 python -m pip install -e .
 ```
 
-The runtime dependencies are `NumPy`, `SciPy`, `CVXPY` 1.6.7, `dsp-cvxpy` 0.4.2, `h5py`, and `Matplotlib`. The installation also includes `pytest` for running tests. The default solver is `CLARABEL`. `SCS` is also supported. Both are included in a standard `CVXPY` installation.
+The runtime dependencies are `NumPy`, `SciPy`, `CVXPY` 1.6.7, `dsp-cvxpy` 0.4.2, `h5py`, `scikit-learn`, and `Matplotlib`. The installation also includes `pytest` for running tests. The default CVX solver is `CLARABEL`. `SCS` is also supported. Both are included in a standard `CVXPY` installation.
 
 ## Fit and evaluate
 
@@ -31,20 +32,23 @@ beta_star = np.array([1.0, -0.5, 0.0])
 y = X @ beta_star + 0.2 * rng.normal(size=20)
 delta, p = 0.15, 3
 
-# evaluate a supplied coefficient vector
+# evaluate a fixed beta
 risk = RobustRisk(X, y, delta, p)
 beta = np.array([0.8, -0.4, 0.1])
 print(risk.primal(beta))
 
-# find coefficients minimizing the same mean robust loss
+# find beta minimizing the mean robust loss using cvx
 fit = CvxOptimizer(risk).minimize()
 print(fit.beta)
 print(fit.value)
-# CVXPY value checked against fit.value
-print(fit.diagnostics["model_value"])
+
+# find beta minimizing the mean robust loss using eta trick solver
+fit = EtaOptimizer(risk).minimize()
+print(fit.beta)
+print(fit.value)
 ```
 
-`CvxOptimizer` takes the data, radius, and norms from `risk`. To fit directly from data without constructing a risk object yourself, use the standalone function.
+To fit directly from data without constructing a risk object yourself, use the standalone function.
 
 ```python
 from DRO.cvx_solver import minimize_cvx
@@ -52,9 +56,17 @@ from DRO.cvx_solver import minimize_cvx
 fit = minimize_cvx(X, y, radius=delta, p=p)
 ```
 
-`X` has shape `(n, d)` and `y` has shape `(n,)`. No intercept is added automatically. `delta` is the Wasserstein radius. The default ground norm is $\ell_\infty$, whose dual coefficient norm is $\ell_1$. Both the scalar evaluator and the `CVXPY` solver accept real exponents $2\leq p<\infty$ and `p=np.inf`.
+For the default $\ell_\infty$ ground norm, the [eta solver](docs/eta.md) is also available:
 
-Both the evaluator and solver return the mean robust squared loss. Use `per_sample=False` with the evaluator only when you need summed loss. The fit includes the solver status and an independent risk evaluation. Missing coefficients or a status other than `optimal` or `optimal_inaccurate` raise an exception.
+```python
+from DRO.eta_solver import EtaOptimizer
+
+fit = EtaOptimizer(risk).minimize()
+```
+
+`X` has shape `(n, d)` and `y` has shape `(n,)`. No intercept is added automatically. `delta` is the Wasserstein radius. The default ground norm is $\ell_\infty$, so the dual norm on $\beta$ is $\ell_1$. The scalar evaluator and both optimizers accept real exponents $2\leq p<\infty$ and `p=np.inf`.
+
+The evaluator and both optimizers return the mean robust squared loss. Use `per_sample=False` with the evaluator only when you need summed loss. The fit includes the solver status and an independent risk evaluation. For `CVX`, a missing `beta` or a status other than `optimal` or `optimal_inaccurate` raises an exception. Eta uses fixed smoothing and reports `step_tolerance` or `iteration_limit` (`least-squares` at zero radius).
 
 ## Fast-rate experiment
 
@@ -74,6 +86,8 @@ PYTHONPATH=src python -m DRO.experiments.fast.rate \
     --fit-min-n 24 \
     --directory /tmp/fast-pilot
 ```
+Both rate experiments use $\ell_\infty$ ground norm and default to `--solver cvx`. With default output paths, `--solver eta` saves fits in `data/fast_eta_<data config hash>/` while CVX uses `data/fast_<data config hash>/`. The default folders reuse saved seeds across solvers.
+
 See [the experiment docs](docs/fast.md) for dependencies, settings, more about custom runs, and saved-data details.
 
 ## Slow-rate experiment
@@ -103,6 +117,8 @@ PYTHONPATH=src python -m DRO.experiments.slow.rate \
     --fit-n-min 4096 \
     --output-directory plots/slow/c3-extended/rate
 ```
+
+Add `--solver eta` to use eta. Its default output folder is `plots/slow_eta/`. The default `CVX` output remains `plots/slow/`.
 
 See [the experiment docs](docs/slow.md) for the data construction, slow-rate mechanism, settings, and saved results.
 

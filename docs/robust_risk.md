@@ -1,6 +1,6 @@
 # Evaluate the robust risk
 
-[`RobustRisk`](../src/DRO/robust_risk.py) evaluates the risk at a fixed coefficient vector. Write $r=X\beta-y$ and $B=\|\beta\|_*$. Theorem 1, Eq. (7) of the paper gives, for finite $p$,
+[`RobustRisk`](../src/DRO/robust_risk.py) evaluates the risk at a fixed $\beta$. Write $r=X\beta-y$ and $B=\|\beta\|_*$. Theorem 1, Eq. (7) of the paper gives, for finite $p$,
 
 $$
 V_\delta(\beta)=\max_{t_i\geq0:\,\sum_i t_i^p\leq n\delta^p}
@@ -40,7 +40,7 @@ Inputs are finite arrays `X` of shape `(n, d)`, `y` of shape `(n,)`, and `beta` 
 
 `primal` passes `residual_abs = abs(X @ beta - y)` and `B` to `_ScalarRisk.solve`. The following special cases are simple to deal with and thus require no numerical search.
 
-**Zero radius or zero coefficient norm.** If $\delta=0$, every feasible length $t_i$ is zero. If $B=0$, the perturbation term vanishes regardless of the lengths. Either way, $nV_\delta=\sum_i r_i^2$.
+**Zero radius or zero beta.** If $\delta=0$, every feasible length $t_i$ is zero. If $B=0$, the perturbation term vanishes regardless of the lengths. Either way, $nV_\delta=\sum_i r_i^2$.
 
 ```python
 if self.delta == 0 or B == 0:
@@ -296,6 +296,12 @@ return -result.f_x
 These are the inner maximum values, rather than the maximizing lengths. The outer `objective` sums them and adds $n\widetilde\lambda$, completing one evaluation of $H$.
 
 Once the outer minimization succeeds, `_solve_finite_p` multiplies `result.fun` by `scale**2` to return the summed risk in the original response units. A failed bracket search, inner minimization, or outer minimization raises an error.
+
+## Recover transport lengths for eta updates
+
+`_ScalarRisk.transport(a, B)` returns a maximizing vector of lengths $\boldsymbol{t}^\star$ for nonnegative residual magnitudes `a` and beta norm `B`. The eta solver passes its consistently smoothed magnitudes to this method. The $p=2$ and $p=\infty$ cases use the explicit solutions above.
+
+For intermediate exponents, the method uses the same scalar reduction, solving its budget equation instead of minimizing its value. 
 
 ## Gamma formulation
 

@@ -24,7 +24,7 @@ print(fit.value, fit.diagnostics["model_value"])
 fit = minimize_cvx(X, y, radius=0.15, p=3.0, norm=np.inf)
 ```
 
-`fit.beta` contains the fitted coefficients and `fit.value` is the mean robust squared loss, $V_\delta(\beta)$.
+`fit.beta` contains the fitted beta and `fit.value` is the mean robust squared loss, $V_\delta(\beta)$.
 
 ## Response scaling
 
@@ -55,7 +55,7 @@ r = X @ beta - risk.y / scale
 B = cp.norm(beta, risk.norm_dual)
 ```
 
-The code's `beta`, `r`, and `B` are thus in scaled response units. This differs from the [robust risks scaling](robust_risk.md#scale-the-lengths-and-loss), which also uses the known residuals and coefficient norm. Both transformations are exact changes of variables so neither changes the mathematical problem.
+The code's `beta`, `r`, and `B` are thus in scaled response units. This differs from the [robust risks scaling](robust_risk.md#scale-the-lengths-and-loss), which also uses the known residuals and norm of $\beta$. Both transformations are exact changes of variables so neither changes the mathematical problem.
 
 ## The problem passed to the solver
 
@@ -94,7 +94,7 @@ K(\beta,\gamma)=n^{1/p}\delta B\left(\sum_i\gamma_i\right)^{1/q}
 +\sum_i |r_i|\gamma_i^{1/q}-\frac14\sum_i\gamma_i^{2/q}.
 $$
 
-Fitting coefficients therefore solves
+Fitting $\beta$ therefore solves
 
 $$
 \min_\beta\max_{\gamma\geq0}K(\beta,\gamma).
@@ -120,7 +120,7 @@ else:  # 2 < p < infty case -- solve saddle formulation using DSP
 
 ## Restore units and interpret diagnostics
 
-After solving, the coefficients are multiplied by $s$, and the risk is evaluated with the original `RobustRisk` object. If $J$ is the solver objective, its mean-risk value in original units is $s^2J$ for the closed form special cases and $s^2J/n$ for `DSP`:
+After solving, `beta.value` is multiplied by $s$, and the risk is evaluated with the original `RobustRisk` object. If $J$ is the solver objective, its mean-risk value in original units is $s^2J$ for the closed form special cases and $s^2J/n$ for `DSP`:
 
 ```python
 beta_hat = beta.value * scale
@@ -138,7 +138,7 @@ Diagnostics retain enough information to inspect the numerical fit and compare t
 - `response_scale` -- records the response scale used in the solve.
 - `formulation`, `solver`, `status` -- what special case it is (e.g. `"dsp-gamma"` or `"p=infinity"`), what numerical solver was used and reported convergence status
 
-The code accepts `optimal` and `optimal_inaccurate` statuses when coefficients are returned. It exposes the two risk values for comparison, and does not automatically reject a discrepancy. The [tests](../tests/cvx_solver_test.py) check these values and compare fitted minima with known solutions and independent optimizers.
+The code accepts `optimal` and `optimal_inaccurate` statuses when a fitted beta is returned. It exposes the two risk values for comparison, and does not automatically reject a discrepancy. The [tests](../tests/cvx_solver_test.py) check these values and compare fitted minima with known solutions and independent optimizers.
 
 `CLARABEL` is the default solver. Other options are forwarded to the selected solver, for example:
 

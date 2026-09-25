@@ -46,7 +46,7 @@ class EtaOptimizer:
         **solver_options,
     ):
         """
-        repeat transport -> weights -> weighted ridge with fixed smoothing
+        repeat perturbation lengths -> weights -> weighted ridge with fixed smoothing
 
         stop on relative beta change <= tol, not an optimality certificate
         solver and solver_options are passed to Ridge
@@ -99,7 +99,7 @@ class EtaOptimizer:
                 beta_norm = float(beta_smooth.sum())
 
                 # compute t_star
-                t_star = scalar_risk.transport(r_smooth, beta_norm)
+                _, t_star = scalar_risk.solve(r_smooth, beta_norm, return_t=True)
 
                 # compute weights w and gamma
                 w = (r_smooth + t_star * beta_norm) / r_smooth
@@ -125,7 +125,7 @@ class EtaOptimizer:
             # evaluate the smoothed objective at the final betas
             r_smooth = np.hypot(X @ beta - y, epsilon)
             beta_norm = float(np.hypot(beta, epsilon).sum())
-            t_star = scalar_risk.transport(r_smooth, beta_norm)
+            _, t_star = scalar_risk.solve(r_smooth, beta_norm, return_t=True)
             model_value = float(np.mean((r_smooth + t_star * beta_norm) ** 2))
 
         # scale back and evaluate the original risk. save diagnostics

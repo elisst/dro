@@ -116,8 +116,8 @@ def test_paper_ridge_update_and_exact_surrogate(p, beta0):
     n, delta, epsilon = len(y), 0.23, 0.07
     a = np.hypot(X @ beta0 - y, epsilon)
     b = np.hypot(beta0, epsilon)
-    transport = _ScalarRisk(delta, p)
-    t = transport.transport(a, b.sum())
+    scalar_risk = _ScalarRisk(delta, p)
+    _, t = scalar_risk.solve(a, b.sum(), return_t=True)
     A = a + t * b.sum()
     eta = np.column_stack((a, t[:, None] * b)) / A[:, None]
     assert eta.sum(axis=1) == pytest.approx(np.ones(n))
@@ -166,8 +166,9 @@ def test_ridge_start_and_sample_replication(p):
     default = minimize_eta(X, y, delta, p, **options)
     explicit = minimize_eta(X, y, delta, p, beta0=beta0, **options)
     repeated = minimize_eta(np.tile(X, (3, 1)), np.tile(y, 3), delta, p, **options)
-    assert default.beta == pytest.approx(explicit.beta, abs=1e-10)
-    assert default.beta == pytest.approx(repeated.beta, abs=1e-10)
+    # value-based minimization recovers lengths to roughly sqrt(machine epsilon)
+    assert default.beta == pytest.approx(explicit.beta, abs=1e-8)
+    assert default.beta == pytest.approx(repeated.beta, abs=1e-8)
     assert default.diagnostics["model_value"] == pytest.approx(
         repeated.diagnostics["model_value"], rel=1e-10)
 

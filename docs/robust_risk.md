@@ -297,11 +297,11 @@ These are the inner maximum values, rather than the maximizing lengths. The oute
 
 Once the outer minimization succeeds, `_solve_finite_p` multiplies `result.fun` by `scale**2` to return the summed risk in the original response units. A failed bracket search, inner minimization, or outer minimization raises an error.
 
-## Recover transport lengths for eta updates
+## Return perturbation lengths for eta updates
 
-`_ScalarRisk.transport(a, B)` returns a maximizing vector of lengths $\boldsymbol{t}^\star$ for nonnegative residual magnitudes `a` and beta norm `B`. The eta solver passes its consistently smoothed magnitudes to this method. The $p=2$ and $p=\infty$ cases use the explicit solutions above.
+`_ScalarRisk.solve(a, B)` returns the summed risk as before. With `return_t=True`, it returns `(value, t_star)`, including the maximizing perturbation lengths. The eta solver uses this option with its smoothed residual magnitudes and coefficient norm.
 
-For intermediate exponents, the method uses the same scalar reduction, solving its budget equation instead of minimizing its value. 
+`RobustRisk.primal(beta, return_t=True)` also returns `(value, t_star)`. The `per_sample` option changes only the value's normalization, not the lengths. Both interfaces reuse the existing scalar minimization; there is no separate solver for the lengths.
 
 ## Gamma formulation
 

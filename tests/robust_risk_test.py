@@ -189,14 +189,30 @@ def test_response_scaling(p, scale):
     ([0.0, 1.0, 0.0, 3.0], 0.0, 0.23),
     ([0.0, 1.0, 0.0, 3.0], 1.7, 0.0),
 ])
-def test_transport_constraints_and_scalar_value(p, a, B, delta):
-    """Length recovery agrees with the independent value-only scalar solver."""
+def test_returned_lengths_constraints_and_scalar_value(p, a, B, delta):
+    """returned lengths are feasible and attain the scalar risk to numerical accuracy"""
     from DRO.robust_risk import _ScalarRisk
 
     a = np.asarray(a)
     scalar = _ScalarRisk(delta, p)
-    t = scalar.transport(a, B)
+    value, t = scalar.solve(a, B, return_t=True)
+    assert value == pytest.approx(scalar.solve(a, B), rel=1e-12)
     assert np.all(np.isfinite(t)) and np.all(t >= 0)
     assert np.linalg.norm(t, ord=p) == pytest.approx(len(a)**(1 / p) * delta,
                                                    rel=1e-9, abs=1e-12)
-    assert np.sum((a + B * t)**2) == pytest.approx(scalar.solve(a, B), rel=1e-7)
+    assert np.sum((a + B * t)**2) == pytest.approx(value, rel=1e-7)
+
+
+@pytest.mark.parametrize("p", PS)
+@pytest.mark.parametrize("per_sample", [True, False])
+def test_primal_can_return_maximizing_lengths(p, per_sample):
+    """mean/sum normalization affects the value only; lengths attain that value"""
+    X, y, beta = make_data(n=7, d=3)
+    risk = RobustRisk(X, y, 0.2, p)
+    value, t = risk.primal(beta, per_sample=per_sample, return_t=True)
+    assert value == pytest.approx(risk.primal(beta, per_sample=per_sample), rel=1e-12)
+    _, other_t = risk.primal(beta, per_sample=not per_sample, return_t=True)
+    assert t == pytest.approx(other_t, abs=1e-12)
+    assert np.linalg.norm(t, ord=p) == pytest.approx(len(y)**(1 / p) * 0.2, rel=1e-9)
+    loss = (np.abs(X @ beta - y) + np.linalg.norm(beta, 1) * t)**2
+    assert value == pytest.approx(np.mean(loss) if per_sample else np.sum(loss), rel=1e-7)

@@ -14,8 +14,7 @@ see docs/robust_risk.md for the equations, call structure, and examples
 
 import cvxpy as cp
 import numpy as np
-from scipy.optimize import brentq, elementwise, minimize_scalar
-from scipy.special import logsumexp
+from scipy.optimize import elementwise, minimize_scalar
 
 
 class RobustRisk:
@@ -35,11 +34,12 @@ class RobustRisk:
         self.q = _conjugate(p)
         self.norm_dual = _conjugate(norm)
 
-    def primal(self, beta, per_sample=True):
+    def primal(self, beta, per_sample=True, *, return_t=False):
         """
         evaluate mean risk V_delta through the scalar reduction in eq. (16)
 
         pass per_sample=False to return summed loss n V_delta
+        pass return_t=True to return (value, maximizing perturbation lengths)
         """
 
         # form residual and B
@@ -47,9 +47,11 @@ class RobustRisk:
         B = np.linalg.norm(beta, self.norm_dual)
 
         # compute n V_delta with the _ScalarRisk class
-        n_value = _ScalarRisk(self.delta, self.p).solve(residual_abs, B)
-
-        return n_value / self.n if per_sample else n_value
+        result = _ScalarRisk(self.delta, self.p).solve(residual_abs, B, return_t=return_t)
+        if return_t:
+            n_value, t = result
+            return (n_value / self.n if per_sample else n_value), t
+        return result / self.n if per_sample else result
 
     def dual(self, beta, per_sample=True):
         """
@@ -93,73 +95,40 @@ class _ScalarRisk:
         self.delta = delta
         self.p = p
 
-    def solve(self, residual_abs, B):
+    def solve(self, residual_abs, B, *, return_t=False):
         """
         return summed risk
 
+        pass return_t=True to also return the maximizing lengths
         p=2 and p=infinity have explicit formulas
         """
 
+        residual_abs = np.asarray(residual_abs, dtype=float)
+        n = len(residual_abs)
+
         # divide into cases (see docs)
         if self.delta == 0 or B == 0:  # OLS
-            return float(np.sum(residual_abs**2))
+            value = float(np.sum(residual_abs**2))
+            if return_t:
+                # at B=0 every feasible choice maximizes the loss
+                return value, np.full(n, self.delta)
+            return value
         if np.isinf(self.p):  # adversarial training
-            return float(np.sum((residual_abs + B * self.delta) ** 2))
+            value = float(np.sum((residual_abs + B * self.delta) ** 2))
+            return (value, np.full(n, self.delta)) if return_t else value
         if self.p == 2:  # square-root lasso
-            return (
-                np.linalg.norm(residual_abs)
-                + np.sqrt(len(residual_abs)) * self.delta * B
-            ) ** 2
+            residual_norm = np.linalg.norm(residual_abs)
+            value = (residual_norm + np.sqrt(n) * self.delta * B) ** 2
+            if return_t:
+                t = (np.sqrt(n) * self.delta * residual_abs / residual_norm
+                     if residual_norm > 0 else np.full(n, self.delta))
+                return value, t
+            return value
         # only remaining 2 < p < infty case where delta, B > 0
-        return self._solve_finite_p(residual_abs, B)
+        return self._solve_finite_p(residual_abs, B, return_t=return_t)
 
-    def transport(self, a, B):
-        """Return maximizing lengths for nonnegative magnitudes a and B."""
-        delta, p = self.delta, self.p
-        a = np.asarray(a, dtype=float)
-        n = len(a)
-        if delta == 0:
-            return np.zeros(n)
-        if B == 0 or np.all(a == a[0]):
-            return np.full(n, delta)
-        if p == 2:
-            return np.sqrt(n) * delta * a / np.linalg.norm(a)
-        if np.isinf(p):
-            return np.full(n, delta)
-
-        # Write t = delta*u and solve mu*u**(p-1) = a + b*u, with mean(u**p)=1.
-        # Scaling keeps mu between (min(a)+b)/(max(a)+b) and 1.
-        scale = float(np.max(a)) + delta * B
-        a, b = a / scale, delta * B / scale
-        # Zero residuals are valid; log(a)=-inf gives the correct equation.
-        with np.errstate(divide="ignore"):
-            log_a = np.log(a)
-        log_b = np.log(b)
-
-        def log_lengths(mu):
-            # Solve in log(u): the equation is increasing and powers cannot overflow.
-            def stationarity(log_u, log_a):
-                return (p - 1) * log_u + np.log(mu) - np.logaddexp(log_a, log_b + log_u)
-
-            bracket = elementwise.bracket_root(stationarity, -1.0, 1.0, args=(log_a,))
-            if not np.all(bracket.success):
-                raise RuntimeError("could not bracket the transport lengths")
-            result = elementwise.find_root(
-                stationarity, bracket.bracket, args=(log_a,),
-                tolerances={"xatol": 1e-12, "xrtol": 1e-12, "fatol": 0.0, "frtol": 0.0},
-            )
-            if not np.all(result.success):
-                raise RuntimeError("transport lengths did not converge")
-            return result.x
-
-        def budget(mu):
-            return logsumexp(p * log_lengths(mu)) - np.log(n)
-
-        mu = brentq(budget, float(np.min(a)) + b, 1.0, xtol=1e-12)
-        return delta * np.exp(log_lengths(mu))
-
-    def _solve_finite_p(self, residual_abs, B):
-        """return summed risk for 2 < p < infinity"""
+    def _solve_finite_p(self, residual_abs, B, *, return_t=False):
+        """return summed risk and optionally maximizing lengths for 2 < p < infinity"""
 
         # rescale to keep problem numerically well-behaved (see docs)
         scale = max(float(np.max(residual_abs)), self.delta * B)
@@ -170,7 +139,8 @@ class _ScalarRisk:
         lambda_lo = 2 * b * (float(np.min(a)) + b) / self.p
         lambda_hi = 2 * b * (float(np.max(a)) + b) / self.p
         if lambda_lo == lambda_hi:
-            return float(np.sum((a + b) ** 2) * scale**2)
+            value = float(np.sum((a + b) ** 2) * scale**2)
+            return (value, np.full(len(a), self.delta)) if return_t else value
 
         def objective(relative_lambda):
             lam = relative_lambda * lambda_hi
@@ -188,14 +158,21 @@ class _ScalarRisk:
         if not result.success:
             raise RuntimeError(f"scalar risk minimization failed: {result.message}")
 
-        # scale back up and return
-        return float(result.fun * scale**2)
+        # scale back up and optionally recover lengths at the final lambda
+        value = float(result.fun * scale**2)
+        if return_t:
+            _, u = self._maximize_t(a, b, result.x * lambda_hi, return_t=True)
+            # correct the numerical budget discrepancy so the lengths are feasible
+            u = u / np.mean(u**self.p) ** (1 / self.p)
+            return value, self.delta * u
+        return value
 
-    def _maximize_t(self, a, b, lam):
+    def _maximize_t(self, a, b, lam, *, return_t=False):
         """
         maximize each scaled f_i over u_i = t_i / delta
 
         return each inner maximum by minimizing the negative objective
+        with return_t=True, also return the maximizing scaled lengths u
         """
 
         def negative_objective(u, a):
@@ -221,7 +198,7 @@ class _ScalarRisk:
         if not np.all(result.success):
             raise RuntimeError("perturbation maximization did not converge")
 
-        return -result.f_x
+        return (-result.f_x, result.x) if return_t else -result.f_x
 
 
 def _conjugate(exponent):

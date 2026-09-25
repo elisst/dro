@@ -47,7 +47,7 @@ The code's `r_smooth`, `beta_smooth`, and `beta_norm` correspond to the paper's 
 r_smooth = np.hypot(X @ beta - y, epsilon)
 beta_smooth = np.hypot(beta, epsilon)
 beta_norm = float(beta_smooth.sum())
-t_star = scalar_risk.transport(r_smooth, beta_norm)
+_, t_star = scalar_risk.solve(r_smooth, beta_norm, return_t=True)
 
 w = (r_smooth + t_star * beta_norm) / r_smooth
 gamma = (
@@ -57,7 +57,7 @@ gamma = (
 beta_next = _weighted_ridge(X, y, w, gamma, solver=solver, **solver_options)
 ```
 
-`np.hypot(a, epsilon)` computes $\sqrt{a^2+\epsilon^2}$, keeping the denominators positive. `_ScalarRisk.transport` supplies the worst-case lengths $\boldsymbol t^\star$ for these smoothed magnitudes; see the [robust risk doc](robust_risk.md) for the scalar reduction. The weights `w` and `gamma` encode the eta update, so no full eta array is stored.
+`np.hypot(a, epsilon)` computes $\sqrt{a^2+\epsilon^2}$, keeping the denominators positive. `_ScalarRisk.solve(..., return_t=True)` supplies the worst-case lengths $\boldsymbol t^\star$ for these smoothed magnitudes; see the [robust risk doc](robust_risk.md) for the scalar reduction. The weights `w` and `gamma` encode the eta update, so no full eta array is stored.
 
 `_weighted_ridge` minimizes
 

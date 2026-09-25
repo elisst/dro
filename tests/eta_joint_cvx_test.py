@@ -66,7 +66,7 @@ def check_simplex(eta):
 
 def weights_from_eta(eta, p):
     """
-    recover ridge weights from CVX eta, without calling scalar transport
+    recover ridge weights from CVX eta, without calling the scalar risk solver
 
     at optimal eta the columns of 1/eta[:, 1:] are proportional, so the
     norm of their positive sum is the sum of their norms
@@ -118,7 +118,7 @@ def test_smoothed_fit_against_joint_eta_cvx(p, n, d, seed):
 
 @pytest.mark.parametrize("p", PS)
 @pytest.mark.parametrize("initial", [[0.4, -0.2, 0.1], [0.4, 0.0, -0.1], [0., 0., 0.]])
-def test_cvx_eta_update_matches_transport_and_ridge(p, initial):
+def test_cvx_eta_update_matches_scalar_lengths_and_ridge(p, initial):
     """compare eta, objective, weights, and one beta step at fixed beta"""
     X, y = make_data(n=5, d=3, seed=82)
     initial = np.array(initial)
@@ -132,7 +132,7 @@ def test_cvx_eta_update_matches_transport_and_ridge(p, initial):
     check_simplex(eta)
 
     r, b = np.hypot(X @ initial - y, EPSILON), np.hypot(initial, EPSILON)
-    t = _ScalarRisk(DELTA, p).transport(r, b.sum())
+    _, t = _ScalarRisk(DELTA, p).solve(r, b.sum(), return_t=True)
     A = r + t * b.sum()
     expected_eta = np.column_stack((r, t[:, None] * b)) / A[:, None]
     assert eta == pytest.approx(expected_eta, rel=3e-4, abs=3e-6)
@@ -150,8 +150,8 @@ def test_cvx_eta_update_matches_transport_and_ridge(p, initial):
 
 
 @pytest.mark.parametrize("p", PS)
-def test_alternating_cvx_eta_and_ridge_matches_joint_and_transport(p):
-    """the reference loop gets all its eta updates from CVX, never transport"""
+def test_alternating_cvx_eta_and_ridge_matches_joint_and_scalar_solver(p):
+    """the reference loop gets all its eta updates from CVX, never the scalar solver"""
     X, y = make_data()
     n, d = X.shape
     initial = np.linalg.solve(X.T @ X + n * DELTA**2 * np.eye(d), X.T @ y)

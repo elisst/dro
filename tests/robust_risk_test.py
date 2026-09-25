@@ -178,3 +178,25 @@ def test_response_scaling(p, scale):
     baseline = RobustRisk(X, y, 0.2, p).primal(beta)
     changed = RobustRisk(X, scale * y, 0.2, p).primal(scale * beta)
     assert changed / scale**2 == pytest.approx(baseline, rel=1e-8)
+
+
+@pytest.mark.parametrize("p", [2.0, 2.01, 3.0, 6.0, 100.0, np.inf])
+@pytest.mark.parametrize("a,B,delta", [
+    ([0.2, 1.0, 3.0, 0.01], 1.7, 0.23),
+    ([0.0, 1.0, 0.0, 3.0], 1.7, 0.23),
+    ([0.0, 0.0, 0.0, 0.0], 1.7, 0.23),
+    ([1.0, 1.0, 1.0, 1.0], 1.7, 0.23),
+    ([0.0, 1.0, 0.0, 3.0], 0.0, 0.23),
+    ([0.0, 1.0, 0.0, 3.0], 1.7, 0.0),
+])
+def test_transport_constraints_and_scalar_value(p, a, B, delta):
+    """Length recovery agrees with the independent value-only scalar solver."""
+    from DRO.robust_risk import _ScalarRisk
+
+    a = np.asarray(a)
+    scalar = _ScalarRisk(delta, p)
+    t = scalar.transport(a, B)
+    assert np.all(np.isfinite(t)) and np.all(t >= 0)
+    assert np.linalg.norm(t, ord=p) == pytest.approx(len(a)**(1 / p) * delta,
+                                                   rel=1e-9, abs=1e-12)
+    assert np.sum((a + B * t)**2) == pytest.approx(scalar.solve(a, B), rel=1e-7)
